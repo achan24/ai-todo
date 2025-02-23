@@ -3,21 +3,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import tasks
 from .database import create_tables
 
-app = FastAPI(title="AI Todo API")
+app = FastAPI()
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3005"],  # Frontend URL
+    allow_origins=["http://localhost:3005"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(tasks.router, prefix="/api")
 
-# Create tables on startup
 @app.on_event("startup")
 async def startup_event():
     create_tables()

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { TagIcon } from '@heroicons/react/24/solid';
 
 interface Task {
   id: string;
@@ -9,6 +10,7 @@ interface Task {
   completed: boolean;
   priority: 'high' | 'medium' | 'low';
   dueDate?: string;
+  tags: string[];
 }
 
 interface EditTaskModalProps {
@@ -23,6 +25,8 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState(task?.priority || 'medium');
   const [dueDate, setDueDate] = useState(task?.dueDate?.split('T')[0] || '');
+  const [tags, setTags] = useState<string[]>(task?.tags || []);
+  const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     if (task) {
@@ -30,8 +34,21 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
       setDescription(task.description || '');
       setPriority(task.priority);
       setDueDate(task.dueDate?.split('T')[0] || '');
+      setTags(task.tags || []);
+      setNewTag('');
     }
   }, [task]);
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +57,7 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
       description,
       priority,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
+      tags,
     });
     onClose();
   };
@@ -107,6 +125,50 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
                 onChange={(e) => setDueDate(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Tags</label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  >
+                    <TagIcon className="h-3 w-3 mr-1" />
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="ml-1 text-blue-400 hover:text-blue-600"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-2 flex">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                  placeholder="Add a tag"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTag}
+                  className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Add
+                </button>
+              </div>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PencilIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, TrashIcon, TagIcon } from '@heroicons/react/24/solid';
 import EditTaskModal from './EditTaskModal';
 
 interface Task {
@@ -11,6 +11,7 @@ interface Task {
   completed: boolean;
   priority: 'high' | 'medium' | 'low';
   dueDate?: string;
+  tags: string[];
 }
 
 export default function TaskManager() {
@@ -20,17 +21,23 @@ export default function TaskManager() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Fetch tasks on component mount
+  // Fetch tasks
   const fetchTasks = async () => {
     try {
-      const response = await fetch('http://localhost:8005/api/tasks/');
+      setIsLoading(true);
+      const response = await fetch('http://localhost:8005/api/tasks');
       if (!response.ok) {
         throw new Error('Failed to fetch tasks');
       }
       const data = await response.json();
-      setTasks(data);
+      setTasks(data.map((task: Task) => ({
+        ...task,
+        tags: task.tags || []
+      })));
     } catch (error) {
       console.error('Error fetching tasks:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,39 +45,38 @@ export default function TaskManager() {
     fetchTasks();
   }, []);
 
-  // Add new task
-  const handleAddTask = async () => {
+  // Add task
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
-    setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8005/api/tasks/', {
+      const response = await fetch('http://localhost:8005/api/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           title: newTaskTitle,
-          priority: 'medium', // default priority
+          priority: 'medium',
+          tags: []
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create task');
+        throw new Error('Failed to add task');
       }
 
       const newTask = await response.json();
-      setTasks([...tasks, newTask]);
+      setTasks([...tasks, { ...newTask, tags: newTask.tags || [] }]);
       setNewTaskTitle('');
     } catch (error) {
-      console.error('Error creating task:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error adding task:', error);
     }
   };
 
   // Toggle task completion
-  const toggleTaskCompletion = async (taskId: string, completed: boolean) => {
+  const toggleTaskCompletion = async (taskId: string, currentStatus: boolean) => {
     try {
       const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
         method: 'PUT',
@@ -78,7 +84,7 @@ export default function TaskManager() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          completed: !completed,
+          completed: !currentStatus,
         }),
       });
 
@@ -86,8 +92,10 @@ export default function TaskManager() {
         throw new Error('Failed to update task');
       }
 
-      setTasks(tasks.map(task => 
-        task.id === taskId ? { ...task, completed: !completed } : task
+      setTasks(tasks.map(task =>
+        task.id === taskId
+          ? { ...task, completed: !currentStatus }
+          : task
       ));
     } catch (error) {
       console.error('Error updating task:', error);
@@ -115,6 +123,29 @@ export default function TaskManager() {
       ));
     } catch (error) {
       console.error('Error updating task:', error);
+    }
+  };
+
+  // Delete task
+  const handleDeleteTask = async (taskId: string, taskTitle: string) => {
+    const confirmed = window.confirm(`Are you sure you want to delete "${taskTitle}"?`);
+    
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete task');
+      }
+
+      setTasks(tasks.filter(task => task.id !== taskId));
+    } catch (error) {
+      console.error('Error deleting task:', error);
     }
   };
 
@@ -151,7 +182,7 @@ export default function TaskManager() {
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
-                        handleAddTask();
+                        handleAddTask(e);
                       }
                     }}
                   />
@@ -209,9 +240,11 @@ export default function TaskManager() {
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <div className="min-w-0">
-                        <p className={`text-sm font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
-                          {task.title}
-                        </p>
+                        <div className="flex items-center">
+                          <p className={`text-sm font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
+                            {task.title}
+                          </p>
+                        </div>
                         {task.description && (
                           <p className="text-sm text-gray-500 mt-1">
                             {task.description}
@@ -224,7 +257,18 @@ export default function TaskManager() {
                         )}
                       </div>
                     </div>
+
                     <div className="flex items-center space-x-3">
+                      {task.tags && task.tags.length > 0 && (
+                        <div className="flex space-x-1">
+                          {task.tags.map((tag, index) => (
+                            <span key={index} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                              <TagIcon className="h-3 w-3 mr-1" />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         task.priority === 'high' ? 'bg-red-100 text-red-800' :
                         task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -240,6 +284,12 @@ export default function TaskManager() {
                         className="text-gray-400 hover:text-gray-600"
                       >
                         <PencilIcon className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTask(task.id, task.title)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
+                        <TrashIcon className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
