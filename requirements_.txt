@@ -1,0 +1,132 @@
+### **Final MVP – AI-Driven ADHD Productivity System**  
+This version **automates as much as possible** so you don’t have to remember anything except **doing the work**.  
+
+---
+
+## **🔹 MVP Core Features (Final Selection)**  
+
+### **1️⃣ AI-Powered Task Prioritization (Goals + Tags + Automated Sorting)**  
+- Users set **high-level goals** (e.g., "Finish MSc Coursework," "Improve Fitness").  
+- **Tasks are automatically sorted by AI** based on **urgency, importance, and deadlines**.  
+- **Manual tagging** allows finer control, but AI **learns from past decisions** to improve over time.  
+- **One-Click “What Should I Do Next?” Button** → AI recommends the highest-priority task.  
+
+🔹 **Why?** → Removes **decision paralysis**, so you focus on **execution**.  
+
+---
+
+### **2️⃣ AI-Powered Automatic Reminders (No More Forgetting!)**  
+- **Context-Aware Smart Reminders** pop up **at the right moment** (e.g., “Start studying before your 3PM class”).  
+- **AI detects if you haven’t engaged with a task & sends nudges** (e.g., “You haven’t worked on this project in 3 days, should we schedule time?”).  
+- **Auto-snooze** if ignored, then reminds again later.  
+
+🔹 **Why?** → **Reduces mental load** by handling reminders **for you**.  
+
+---
+
+### **3️⃣ Daily Activity Tracker + Reflection & Preview**  
+- **Timeline view** to see what’s been done & what’s coming.  
+- **Color-coded heatmap** for **progress trends**.  
+- **End-of-day “Reflection & Preview” mode** → Review completed tasks, set up for tomorrow.  
+
+🔹 **Why?** → ADHD brains **need to see progress visually** to stay motivated.  
+
+---
+
+### **4️⃣ Voice Journaling + AI Summaries (Fast Thought Dumping)**  
+- **Record quick reflections via voice**.  
+- **AI auto-summarizes into structured notes**.  
+- **Auto-tags based on keywords** (e.g., “stress” → connects to mood tracking).  
+
+🔹 **Why?** → Thinking **is faster than typing**, so this speeds up self-reflection.  
+
+---
+
+### **5️⃣ Future-Self Messages + Emotional Consequence Awareness (Scheduled Self-Check-Ins)**  
+✅ **Automatic Scheduled Time for Emotional Consequence Awareness**  
+- **Daily/Weekly “Emotional Check-In” Sessions** to assess how current choices impact future goals.  
+- AI suggests **journaling prompts** like:  
+  - *“How will Future You feel if this isn’t done?”*  
+  - *“What would you tell your past self about today?”*  
+
+✅ **Future-Self Message System**  
+- Users **write messages for their future selves** at key moments.  
+- App **sends them back at the right time** (e.g., “Hey, you said this was important—stick with it!”).  
+
+🔹 **Why?** → **Building emotional awareness helps prevent procrastination & bad decisions**.  
+
+---
+
+### **6️⃣ Nested Task System (Workflowly-Style for Breaking Things Down)**  
+- **Tasks & subtasks auto-expand/collapse** for clarity.  
+- **Quick keyboard-based entry** for minimal friction.  
+- **AI suggests logical subtasks** based on past behavior.  
+
+🔹 **Why?** → **Big tasks are overwhelming**—this **breaks them into easy steps**.  
+
+---
+
+### **7️⃣ AI Overview of All Tasks & Goals → “What Should I Do Next?”**  
+- AI **analyzes all tasks, goals, and deadlines** to determine the **most urgent & impactful**.  
+- **Prioritized task list** adjusts dynamically based on progress.  
+- Users can **override AI suggestions**, and it **learns from that behavior**.  
+
+🔹 **Why?** → **You never have to guess what to do next**—AI **figures it out** for you.  
+
+---
+
+### **8️⃣ Humor & Dopamine Boosts (Daily Encouragement)**  
+- **AI generates funny, personalized motivation messages**.  
+- **Mini dopamine rewards** for completing tasks (memes, emojis, sounds).  
+- **Silly Mode** (optional) for UI tweaks like ridiculous encouragements.  
+
+🔹 **Why?** → **ADHD brains crave novelty & fun**—this keeps motivation high.  
+
+---
+
+## **🔹 Final MVP Feature List**  
+1️⃣ **AI Task Prioritization (Goals + Tags + AI Sorting)**  
+2️⃣ **AI-Powered Automatic Reminders**  
+3️⃣ **Activity Tracker + Reflection & Preview**  
+4️⃣ **Voice Journaling + AI Summaries**  
+5️⃣ **Future-Self Messages + Scheduled Emotional Awareness Check-Ins**  
+6️⃣ **Nested Task System (Workflowly-Style Task Breakdown)**  
+7️⃣ **AI Overview of Tasks & Goals (“What Should I Do Next?” Button)**  
+8️⃣ **Daily Humor & Dopamine Boosts**  
+
+---
+
+### **💡 Next Steps**  
+🚀 **This should be extremely functional & lightweight—any final changes before locking in development?**
+
+
+
+Infrastructure & Deployment (Render + SambaNova Cloud)  
+
+| **Component**          | **Service**                      | **Why?** |
+|----------------------|--------------------------------|---------|
+| **Frontend Web App** | Next.js (React)               | Fast, SSR for performance |
+| **Styling**          | Tailwind CSS                  | Lightweight, responsive |
+| **Backend API**      | FastAPI (Python)              | Minimal, async API, easy AI integration |
+| **Database**         | PostgreSQL (Render Managed)   | SQL-based, easy to manage |
+| **AI Processing**    | SambaNova Cloud API           | Offloads AI workload, removes need for GPUs |
+| **Task Scheduling**  | Render Cron Jobs             | Handles reminders & automation |
+| **Background Jobs**  | Render Workers (Celery)      | Runs AI requests, reminders |
+| **Push Notifications** | Email (SMTP) OR OneSignal (optional) | Keeps it simple |
+| **Offline Support**  | LocalStorage (Browser-Side)  | Keeps tasks available offline |
+| **Hosting & Deployment** | Render (Static Site for frontend, Web Service for backend) | Fully managed, auto-deploy |
+
+
+Tech Stack Summary
+| **Component**       | **Tech Choice** |
+|-------------------|---------------|
+| **Frontend**      | Next.js (React) |
+| **Styling**       | Tailwind CSS |
+| **Backend API**   | FastAPI (Python) |
+| **Database**      | PostgreSQL (Render Managed) |
+| **Task Scheduling** | Render Cron Jobs |
+| **AI Processing**   | SambaNova Cloud API |
+| **Background Jobs** | Celery (Python) |
+| **Push Notifications** | Email (SMTP) OR OneSignal |
+| **Offline Support** | LocalStorage (Browser-Side) |
+
