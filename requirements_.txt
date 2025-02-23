@@ -84,6 +84,51 @@ This version **automates as much as possible** so you don’t have to remember a
 
 ---
 
+## **🔹 AI Task Prioritization Implementation**
+
+### **Database Schema Updates Needed**
+1. Add `goals` table:
+   - `id`: Primary key
+   - `title`: Goal name
+   - `description`: Optional description
+   - `created_at`, `updated_at`: Timestamps
+   - `user_id`: Foreign key to users
+
+2. Update `tasks` table:
+   - Add `goal_id`: Foreign key to goals table
+   - Add `completion_time`: When task was completed
+   - Add `completion_order`: Order of task completion
+
+### **AI Prioritization Factors**
+1. **Goal-Based Scoring**:
+   - Tasks linked to frequently completed goals get higher priority
+   - System learns which goals are most important based on completion patterns
+
+2. **Learning from User Behavior**:
+   - Tag preferences: Learns which tags user typically prioritizes
+   - Time patterns: Identifies optimal times for different task types
+   - Priority level adaptation: Learns user's true priority preferences
+
+3. **Smart Urgency Calculation**:
+   - Exponential urgency increase near deadlines
+   - Heavy weighting for overdue tasks
+   - Considers both absolute deadlines and relative urgency
+
+4. **Pattern Recognition**:
+   - Analyzes task completion history
+   - Identifies goal priorities
+   - Learns tag importance from completion speed
+   - Adapts to user's natural work patterns
+
+### **Next Implementation Steps**
+1. Run database migrations for new schema
+2. Implement goal CRUD operations
+3. Update task creation/editing to support goals
+4. Implement completion tracking
+5. Test and tune AI scoring weights
+
+---
+
 ## **🔹 Final MVP Feature List**  
 1️⃣ **AI Task Prioritization (Goals + Tags + AI Sorting)**  
 2️⃣ **AI-Powered Automatic Reminders**  
@@ -130,3 +175,167 @@ Tech Stack Summary
 | **Push Notifications** | Email (SMTP) OR OneSignal |
 | **Offline Support** | LocalStorage (Browser-Side) |
 
+
+
+
+
+
+1. Core Prioritization Algorithm
+
+The AI uses a hybrid scoring system combining:
+
+a. Rule-Based Factors (30% weight)
+
+python
+
+def rule_score(task):
+    # Time sensitivity
+    deadline_urgency = 1 / (task.deadline - now()).days
+    
+    # Goal alignment
+    goal_weight = task.goal.weight  # User-assigned 1-5
+    
+    # Completion momentum
+    recent_completion_rate = user.stats.avg_completions_last_week
+    
+    return (deadline_urgency * 0.4) + (goal_weight * 0.3) + (recent_completion_rate * 0.3)
+b. AI-Predicted Factors (70% weight)
+The LLM (Llama3) analyzes:
+
+python
+
+[
+    {"role": "system", "content": """
+        You're a productivity coach specializing in ADHD. Given these tasks and goals:
+        - Tasks: {tasks}
+        - Goals: {goals}
+        - Recent activity: {recent_5_tasks}
+        - Time/energy: {current_time: 3PM, last_meal: 1hr ago}
+        
+        Score each task 1-10 on:
+        1. Likely completion success
+        2. Emotional payoff if done
+        3. Blockage risk
+        """},
+    {"role": "user", "content": "Prioritize for maximum impact"}
+]
+2. Selection Process
+
+mermaid
+Copy
+graph TD
+    A[All Tasks] --> B{Filter}
+    B --> C[Active/Uncompleted]
+    C --> D[Rule-Based Scoring]
+    C --> E[AI Prediction]
+    D --> F[Combine Scores]
+    E --> F
+    F --> G[Top 3 Candidates]
+    G --> H{Energy Check}
+    H -->|Low Energy| I[Pick Shortest Task]
+    H -->|High Energy| J[Pick Highest Impact]
+3. Real Example
+
+Tasks:
+
+Write essay (2hrs, deadline: tomorrow)
+Call dentist (15min, no deadline)
+Research project (4hrs, deadline: next week)
+AI Analysis:
+
+python
+Copy
+# Rule-Based Scores
+task1 = 0.7 (urgent deadline)
+task2 = 0.3 (no deadline)
+task3 = 0.2 (distant deadline)
+
+# AI Predictions
+task1 = 6/10 (high blockage risk: needs focus)
+task2 = 8/10 (easy win)
+task3 = 3/10 (low energy time)
+
+# Combined Scores
+task1: (0.7*0.3) + (6*0.7) = 4.41
+task2: (0.3*0.3) + (8*0.7) = 5.69  # Winner
+task3: (0.2*0.3) + (3*0.7) = 2.16
+Selection Logic:
+"At 3PM with moderate energy, suggest quick win (call dentist) to build momentum."
+
+4. Key Differentiators
+
+Energy Awareness
+
+Copy
+if user.last_interaction_type == "procrastination":
+    recommend_low_energy_tasks()
+elif user.morning_routine_completed:
+    recommend_deep_work()
+Anti-Perfectionism
+Actively avoids suggesting tasks with:
+3 subtasks
+Historical reschedule count >2
+"Perfect" or "Flawless" in task title
+
+
+Momentum Detection
+python
+
+if len(recently_completed_tasks) >= 2:
+    current_score *= 1.2  # Strike while hot
+5. Implementation Code
+
+python
+def get_next_task(user):
+    # 1. Get candidate tasks
+    candidates = Task.filter(
+        user=user, 
+        completed=False,
+        blocked=False
+    ).limit(20)
+    
+    # 2. Hybrid scoring
+    scored = []
+    for task in candidates:
+        rule = rule_score(task)
+        ai = ai_score(task) / 10  # Normalize 1-10 to 0-1
+        combined = (rule * 0.3) + (ai * 0.7)
+        scored.append((task, combined))
+    
+    # 3. Energy adjustment
+    energy = get_current_energy_level(user)
+    if energy < 0.4:
+        scored.sort(key=lambda x: x[0].estimated_duration)
+    else:
+        scored.sort(key=lambda x: -x[1])
+    
+    # 4. Return top 1
+    return scored[0][0]
+6. Why This Works for ADHD
+
+Forces Concrete Comparisons
+The AI can not just say "do important stuff" - it must choose between specific options.
+Avoids Priority Inflation
+Each task is scored relative to others, not absolutely. "Most important" ≠ "Important".
+Prevents "Should Do" Bias
+The AI gets penalized if it keeps suggesting tasks the user avoids.
+7. Debugging Tips
+
+To see why the AI chose a task:
+
+bash
+Copy
+curl -X POST http://localhost:8000/debug_priority -d '{"task_id": 123}'
+
+# Response
+{
+    "decision_reason": "Chose 'Call dentist' because: 
+    - Quick win (15min)
+    - You have 30min before next meeting
+    - Last 2 completed tasks were short",
+    "alternative_options": [
+        {"task": "Write essay", "rejection_reason": "Needs 1hr+ focus time"},
+        {"task": "Research", "rejection_reason": "Low afternoon energy match"}
+    ]
+}
+This is the actual decision logic - no black boxes!

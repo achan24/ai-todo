@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PencilIcon, TrashIcon, TagIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/solid';
 import EditTaskModal from './EditTaskModal';
 
 interface Task {
@@ -12,14 +12,172 @@ interface Task {
   priority: 'high' | 'medium' | 'low';
   dueDate?: string;
   tags: string[];
+  ai_confidence?: number;
+  estimated_minutes?: number;
+  due_date?: string;
+  subtasks?: Task[];
 }
+
+interface TaskItemProps {
+  task: Task;
+  level?: number;
+  onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent, taskId: string) => void;
+  onToggleComplete: (taskId: string, currentStatus: boolean) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (taskId: string, title: string) => void;
+}
+
+const TaskItem = ({ 
+  task, 
+  level = 0,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onToggleComplete,
+  onEdit,
+  onDelete
+}: TaskItemProps) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+
+  return (
+    <>
+      <li 
+        key={task.id} 
+        className={`task-item relative hover:bg-gray-50 cursor-move ${level === 0 ? 'px-4 py-4 sm:px-6' : 'px-3 py-2 sm:px-4'}`}
+        draggable
+        onDragStart={(e) => onDragStart(e, task.id)}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={(e) => onDrop(e, task.id)}
+      >
+        {/* Hover highlight that extends full width */}
+        <div className="absolute inset-0 hover:bg-gray-50 -z-10" />
+        
+        {/* Indentation line for subtasks */}
+        {level > 0 && (
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" 
+            style={{ left: `${level * 2 - 0.5}rem` }}
+          />
+        )}
+
+        <div className="flex items-center justify-between" style={{ marginLeft: `${level * 2}rem` }}>
+          <div className="flex items-center space-x-3">
+            {hasSubtasks && (
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-700"
+              >
+                {isCollapsed ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            )}
+            <input
+              type="checkbox"
+              checked={task.completed}
+              onChange={() => onToggleComplete(task.id, task.completed)}
+              className={`${level === 0 ? 'h-4 w-4' : 'h-3.5 w-3.5'} text-blue-600 focus:ring-blue-500 border-gray-300 rounded`}
+            />
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2">
+                <p className={`${level === 0 ? 'text-sm' : 'text-xs'} font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
+                  {task.title}
+                </p>
+                <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                  task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-green-100 text-green-800'
+                }`}>
+                  {task.priority}
+                </div>
+              </div>
+              {task.description && (
+                <p className={`${level === 0 ? 'text-sm' : 'text-xs'} text-gray-500 mt-0.5`}>
+                  {task.description}
+                </p>
+              )}
+              <div className="flex items-center space-x-2 mt-0.5 text-xs text-gray-500">
+                {task.estimated_minutes && (
+                  <span className="flex items-center">
+                    <ClockIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3 w-3'} mr-1`} />
+                    {task.estimated_minutes} min
+                  </span>
+                )}
+                {task.due_date && (
+                  <span className="flex items-center">
+                    <CalendarIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3 w-3'} mr-1`} />
+                    {new Date(task.due_date).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {task.tags && task.tags.length > 0 && (
+              <div className="flex space-x-1">
+                {task.tags.map((tag, index) => (
+                  <span key={index} className={`inline-flex items-center px-1.5 py-0.5 rounded-full ${level === 0 ? 'text-xs' : 'text-[10px]'} font-medium bg-blue-100 text-blue-800`}>
+                    <TagIcon className={`${level === 0 ? 'h-3 w-3' : 'h-2.5 w-2.5'} mr-0.5`} />
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => onEdit(task)}
+              className="p-1 rounded-full hover:bg-gray-200"
+            >
+              <PencilIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3.5 w-3.5'} text-gray-400`} />
+            </button>
+            <button
+              onClick={() => onDelete(task.id, task.title)}
+              className="p-1 rounded-full hover:bg-gray-200"
+            >
+              <TrashIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3.5 w-3.5'} text-gray-400`} />
+            </button>
+          </div>
+        </div>
+      </li>
+      {hasSubtasks && !isCollapsed && (
+        task.subtasks.map(subtask => (
+          <TaskItem 
+            key={subtask.id} 
+            task={subtask} 
+            level={level + 1}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onToggleComplete={onToggleComplete}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))
+      )}
+    </>
+  );
+};
 
 export default function TaskManager() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [recommendedTask, setRecommendedTask] = useState<Task | null>(null);
 
   // Fetch tasks
   const fetchTasks = async () => {
@@ -30,9 +188,11 @@ export default function TaskManager() {
         throw new Error('Failed to fetch tasks');
       }
       const data = await response.json();
+      console.log('Raw task data:', JSON.stringify(data, null, 2));
       setTasks(data.map((task: Task) => ({
         ...task,
-        tags: task.tags || []
+        tags: task.tags || [],
+        subtasks: task.subtasks || []  // Ensure subtasks is never undefined
       })));
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -149,6 +309,95 @@ export default function TaskManager() {
     }
   };
 
+  // Get AI recommendation
+  const getNextTask = async () => {
+    try {
+      const response = await fetch('http://localhost:8005/api/tasks/next');
+      if (!response.ok) {
+        throw new Error('Failed to get next task');
+      }
+      const data = await response.json();
+      setRecommendedTask(data);
+    } catch (error) {
+      console.error('Error getting next task:', error);
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('taskId', taskId);
+  };
+
+  // Handle drag over
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    const target = e.target as HTMLElement;
+    const taskItem = target.closest('.task-item');
+    if (taskItem) {
+      taskItem.classList.add('drag-over');
+    }
+  };
+
+  // Handle drag leave
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    const target = e.target as HTMLElement;
+    const taskItem = target.closest('.task-item');
+    if (taskItem) {
+      taskItem.classList.remove('drag-over');
+    }
+  };
+
+  // Handle drop
+  const handleDrop = async (e: React.DragEvent, targetTaskId: string) => {
+    e.preventDefault();
+    const draggedTaskId = e.dataTransfer.getData('taskId');
+    const target = e.target as HTMLElement;
+    const taskItem = target.closest('.task-item');
+    if (taskItem) {
+      taskItem.classList.remove('drag-over');
+    }
+    
+    if (draggedTaskId === targetTaskId) return;
+
+    // Prevent dropping a parent onto its own child
+    const isTargetDescendant = (targetId: string, draggedId: string): boolean => {
+      const target = tasks.find(t => t.id === targetId);
+      if (!target) return false;
+      if (!target.subtasks) return false;
+      
+      return target.subtasks.some(subtask => 
+        subtask.id === draggedId || isTargetDescendant(subtask.id, draggedId)
+      );
+    };
+
+    if (isTargetDescendant(draggedTaskId, targetTaskId)) {
+      console.error("Cannot drop a task into its own subtask");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8005/api/tasks/${draggedTaskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parent_id: targetTaskId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update task');
+      }
+
+      // Refresh tasks to show new hierarchy
+      fetchTasks();
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -165,6 +414,42 @@ export default function TaskManager() {
               </svg>
               What Should I Do Next?
             </button>
+          </div>
+
+          {/* AI Recommendation Section */}
+          <div className="mb-6">
+            <button
+              onClick={getNextTask}
+              className="mb-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center"
+            >
+              <SparklesIcon className="h-5 w-5 mr-2" />
+              What Should I Do Next?
+            </button>
+            
+            {recommendedTask && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-purple-900">AI Recommends:</h3>
+                    <p className="text-purple-800">{recommendedTask.title}</p>
+                    {recommendedTask.description && (
+                      <p className="text-sm text-purple-600 mt-1">{recommendedTask.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="text-sm text-purple-700">
+                      Confidence: {Math.round(recommendedTask.ai_confidence * 100)}%
+                    </div>
+                    <button
+                      onClick={() => toggleTaskCompletion(recommendedTask.id, recommendedTask.completed)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
+                    >
+                      Start Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Quick Actions Grid */}
@@ -230,70 +515,20 @@ export default function TaskManager() {
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <ul role="list" className="divide-y divide-gray-200">
               {tasks.map((task) => (
-                <li key={task.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => toggleTaskCompletion(task.id, task.completed)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center">
-                          <p className={`text-sm font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
-                            {task.title}
-                          </p>
-                        </div>
-                        {task.description && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            {task.description}
-                          </p>
-                        )}
-                        {task.dueDate && (
-                          <p className="text-sm text-gray-500">
-                            Due: {new Date(task.dueDate).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      {task.tags && task.tags.length > 0 && (
-                        <div className="flex space-x-1">
-                          {task.tags.map((tag, index) => (
-                            <span key={index} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                              <TagIcon className="h-3 w-3 mr-1" />
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {task.priority}
-                      </div>
-                      <button
-                        onClick={() => {
-                          setEditingTask(task);
-                          setIsEditModalOpen(true);
-                        }}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <PencilIcon className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTask(task.id, task.title)}
-                        className="text-gray-400 hover:text-red-600"
-                      >
-                        <TrashIcon className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                </li>
+                <TaskItem 
+                  key={task.id} 
+                  task={task}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onToggleComplete={toggleTaskCompletion}
+                  onEdit={(task) => {
+                    setEditingTask(task);
+                    setIsEditModalOpen(true);
+                  }}
+                  onDelete={handleDeleteTask}
+                />
               ))}
             </ul>
           </div>
@@ -314,6 +549,12 @@ export default function TaskManager() {
           />
         </div>
       </div>
+      <style jsx>{`
+        .task-item.drag-over {
+          border: 2px dashed #4f46e5;
+          background-color: #f5f3ff;
+        }
+      `}</style>
     </div>
   );
 }

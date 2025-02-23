@@ -11,6 +11,7 @@ interface Task {
   priority: 'high' | 'medium' | 'low';
   dueDate?: string;
   tags: string[];
+  estimated_minutes?: number;
 }
 
 interface EditTaskModalProps {
@@ -27,6 +28,7 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
   const [dueDate, setDueDate] = useState(task?.dueDate?.split('T')[0] || '');
   const [tags, setTags] = useState<string[]>(task?.tags || []);
   const [newTag, setNewTag] = useState('');
+  const [estimatedMinutes, setEstimatedMinutes] = useState(task?.estimated_minutes || '');
 
   useEffect(() => {
     if (task) {
@@ -36,6 +38,7 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
       setDueDate(task.dueDate?.split('T')[0] || '');
       setTags(task.tags || []);
       setNewTag('');
+      setEstimatedMinutes(task.estimated_minutes || '');
     }
   }, [task]);
 
@@ -58,6 +61,7 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
       priority,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
       tags,
+      estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
     });
     onClose();
   };
@@ -123,6 +127,21 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
                 id="dueDate"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="estimated_minutes" className="block text-sm font-medium text-gray-700">
+                Estimated Time (minutes)
+              </label>
+              <input
+                type="number"
+                name="estimated_minutes"
+                id="estimated_minutes"
+                min="0"
+                value={estimatedMinutes}
+                onChange={(e) => setEstimatedMinutes(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>

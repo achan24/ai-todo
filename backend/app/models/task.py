@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from datetime import datetime
 import enum
 from ..database import Base
@@ -21,8 +21,24 @@ class Task(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     tags = Column(JSON, nullable=True, default=list)
-    user_id = Column(Integer, default=1)  # Hardcode user_id as 1 for now
-    parent_id = Column(Integer, ForeignKey('tasks.id'), nullable=True)
+    estimated_minutes = Column(Integer, nullable=True)
+    user_id = Column(Integer, default=1)
+    parent_id = Column(Integer, ForeignKey('tasks.id', ondelete='CASCADE'), nullable=True)
+    goal_id = Column(Integer, ForeignKey('goals.id', ondelete='SET NULL'), nullable=True)
 
     # Relationships
-    subtasks = relationship("Task", backref="parent", remote_side=[id])
+    subtasks = relationship(
+        "Task",
+        backref=backref('parent', remote_side=[id]),
+        cascade="all, delete-orphan",
+        lazy='joined'
+    )
+    goal = relationship("Goal", back_populates="tasks")
+    
+    # Task completion tracking
+    completion_time = Column(DateTime, nullable=True)
+    completion_order = Column(Integer, nullable=True)
+
+    def __init__(self, **kwargs):
+        kwargs['tags'] = kwargs.get('tags', [])
+        super().__init__(**kwargs)
