@@ -5,7 +5,7 @@ import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon }
 import EditTaskModal from './EditTaskModal';
 
 interface Task {
-  id: string;
+  id: number;
   title: string;
   description?: string;
   completed: boolean;
@@ -21,13 +21,13 @@ interface Task {
 interface TaskItemProps {
   task: Task;
   level?: number;
-  onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onDragStart: (e: React.DragEvent, taskId: number) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, taskId: string) => void;
-  onToggleComplete: (taskId: string, currentStatus: boolean) => void;
+  onDrop: (e: React.DragEvent, taskId: number) => void;
+  onToggleComplete: (taskId: number, currentStatus: boolean) => void;
   onEdit: (task: Task) => void;
-  onDelete: (taskId: string, title: string) => void;
+  onDelete: (taskId: number, title: string) => void;
 }
 
 const TaskItem = ({ 
@@ -102,26 +102,24 @@ const TaskItem = ({
                 }`}>
                   {task.priority}
                 </div>
+                {task.estimated_minutes && (
+                  <span className="flex items-center text-xs text-gray-500">
+                    <ClockIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3 w-3'} mr-1`} />
+                    {task.estimated_minutes} min
+                  </span>
+                )}
+                {task.due_date && (
+                  <span className="flex items-center text-xs text-gray-500">
+                    <CalendarIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3 w-3'} mr-1`} />
+                    {new Date(task.due_date).toLocaleDateString()}
+                  </span>
+                )}
               </div>
               {task.description && (
                 <p className={`${level === 0 ? 'text-sm' : 'text-xs'} text-gray-500 mt-0.5`}>
                   {task.description}
                 </p>
               )}
-              <div className="flex items-center space-x-2 mt-0.5 text-xs text-gray-500">
-                {task.estimated_minutes && (
-                  <span className="flex items-center">
-                    <ClockIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3 w-3'} mr-1`} />
-                    {task.estimated_minutes} min
-                  </span>
-                )}
-                {task.due_date && (
-                  <span className="flex items-center">
-                    <CalendarIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3 w-3'} mr-1`} />
-                    {new Date(task.due_date).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
 
@@ -236,7 +234,7 @@ export default function TaskManager() {
   };
 
   // Toggle task completion
-  const toggleTaskCompletion = async (taskId: string, currentStatus: boolean) => {
+  const toggleTaskCompletion = async (taskId: number, currentStatus: boolean) => {
     try {
       const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
         method: 'PUT',
@@ -252,18 +250,28 @@ export default function TaskManager() {
         throw new Error('Failed to update task');
       }
 
-      setTasks(tasks.map(task =>
-        task.id === taskId
-          ? { ...task, completed: !currentStatus }
-          : task
-      ));
+      // Update the task in the state
+      setTasks(prevTasks => {
+        const updateTaskCompletion = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, completed: !currentStatus };
+            }
+            if (task.subtasks) {
+              return { ...task, subtasks: updateTaskCompletion(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        return updateTaskCompletion(prevTasks);
+      });
     } catch (error) {
       console.error('Error updating task:', error);
     }
   };
 
   // Update task
-  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+  const handleUpdateTask = async (taskId: number, updates: Partial<Task>) => {
     try {
       const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
         method: 'PUT',
@@ -278,16 +286,29 @@ export default function TaskManager() {
       }
 
       const updatedTask = await response.json();
-      setTasks(tasks.map(task => 
-        task.id === taskId ? { ...task, ...updatedTask } : task
-      ));
+
+      // Update the task in the state tree
+      setTasks(prevTasks => {
+        const updateTaskInTree = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, ...updatedTask };
+            }
+            if (task.subtasks) {
+              return { ...task, subtasks: updateTaskInTree(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        return updateTaskInTree(prevTasks);
+      });
     } catch (error) {
       console.error('Error updating task:', error);
     }
   };
 
   // Delete task
-  const handleDeleteTask = async (taskId: string, taskTitle: string) => {
+  const handleDeleteTask = async (taskId: number, taskTitle: string) => {
     const confirmed = window.confirm(`Are you sure you want to delete "${taskTitle}"?`);
     
     if (!confirmed) {
@@ -324,8 +345,8 @@ export default function TaskManager() {
   };
 
   // Handle drag start
-  const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('taskId', taskId);
+  const handleDragStart = (e: React.DragEvent, taskId: number) => {
+    e.dataTransfer.setData('taskId', taskId.toString());
   };
 
   // Handle drag over
@@ -349,9 +370,9 @@ export default function TaskManager() {
   };
 
   // Handle drop
-  const handleDrop = async (e: React.DragEvent, targetTaskId: string) => {
+  const handleDrop = async (e: React.DragEvent, targetTaskId: number) => {
     e.preventDefault();
-    const draggedTaskId = e.dataTransfer.getData('taskId');
+    const draggedTaskId = parseInt(e.dataTransfer.getData('taskId'), 10);
     const target = e.target as HTMLElement;
     const taskItem = target.closest('.task-item');
     if (taskItem) {
@@ -361,7 +382,7 @@ export default function TaskManager() {
     if (draggedTaskId === targetTaskId) return;
 
     // Prevent dropping a parent onto its own child
-    const isTargetDescendant = (targetId: string, draggedId: string): boolean => {
+    const isTargetDescendant = (targetId: number, draggedId: number): boolean => {
       const target = tasks.find(t => t.id === targetId);
       if (!target) return false;
       if (!target.subtasks) return false;
