@@ -1,28 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import tasks, users, ai
-from .core.config import settings
+from .routers import tasks
+from .database import create_tables
 
-app = FastAPI(
-    title="AI Todo API",
-    description="API for AI-powered ADHD productivity system",
-    version="1.0.0"
-)
+app = FastAPI(title="AI Todo API")
 
-# CORS middleware configuration
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=["http://localhost:3005"],  # Frontend URL
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Include routers
-app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
-app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy", "version": "1.0.0"}
+# Create tables on startup
+@app.on_event("startup")
+async def startup_event():
+    create_tables()
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to AI Todo API"}
