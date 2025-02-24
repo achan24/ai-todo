@@ -47,7 +47,12 @@ const GoalItem = ({
     <>
       <li 
         key={goal.id} 
-        className={`goal-item relative hover:bg-gray-50 cursor-pointer ${level === 0 ? 'px-4 py-4 sm:px-6' : 'px-3 py-2 sm:px-4'}`}
+        className={`goal-item relative hover:bg-gray-50 cursor-pointer ${
+          level === 0 
+            ? 'px-4 py-4 sm:px-6 mb-4 rounded-lg border border-gray-200 shadow-sm' 
+            : 'px-3 py-2 sm:px-4 mb-2 rounded border border-gray-100'
+        }`}
+        style={level > 0 ? { marginLeft: `${level * 2.5}rem` } : undefined}
         draggable
         onDragStart={(e) => onDragStart(e, goal.id)}
         onDragOver={onDragOver}
@@ -61,17 +66,23 @@ const GoalItem = ({
         }}
       >
         {/* Hover highlight that extends full width */}
-        <div className="absolute inset-0 hover:bg-gray-50 -z-10" />
+        <div className={`absolute inset-0 hover:bg-gray-50 -z-10 ${level === 0 ? 'rounded-lg' : 'rounded'}`} />
         
         {/* Indentation line for subgoals */}
         {level > 0 && (
-          <div 
-            className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" 
-            style={{ left: `${level * 2 - 0.5}rem` }}
-          />
+          <>
+            <div 
+              className="absolute left-0 top-0 bottom-1/2 w-px bg-gray-200" 
+              style={{ left: `-0.75rem` }}
+            />
+            <div 
+              className="absolute left-0 w-3 h-px bg-gray-200" 
+              style={{ left: `-0.75rem`, top: '50%' }}
+            />
+          </>
         )}
 
-        <div className="flex items-center justify-between" style={{ marginLeft: `${level * 2}rem` }}>
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {hasSubgoals && (
               <button
@@ -205,7 +216,6 @@ export default function GoalManager() {
 
   // Handle drag leave
   const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
     const target = e.target as HTMLElement;
     const goalItem = target.closest('.goal-item');
     if (goalItem) {
@@ -217,27 +227,8 @@ export default function GoalManager() {
   const handleDrop = async (e: React.DragEvent, targetGoalId: string) => {
     e.preventDefault();
     const draggedGoalId = e.dataTransfer.getData('goalId');
-    const target = e.target as HTMLElement;
-    const goalItem = target.closest('.goal-item');
-    if (goalItem) {
-      goalItem.classList.remove('drag-over');
-    }
     
-    if (draggedGoalId === targetGoalId) return;
-
-    // Prevent dropping a parent onto its own child
-    const isTargetDescendant = (targetId: string, draggedId: string): boolean => {
-      const target = goals.find(g => g.id === targetId);
-      if (!target) return false;
-      if (!target.subgoals) return false;
-      
-      return target.subgoals.some(subgoal => 
-        subgoal.id === draggedId || isTargetDescendant(subgoal.id, draggedId)
-      );
-    };
-
-    if (isTargetDescendant(draggedGoalId, targetGoalId)) {
-      console.error("Cannot drop a goal into its own subgoal");
+    if (draggedGoalId === targetGoalId) {
       return;
     }
 
@@ -256,7 +247,7 @@ export default function GoalManager() {
         throw new Error('Failed to update goal');
       }
 
-      // Refresh goals to show new hierarchy
+      // Refresh goals after successful update
       fetchGoals();
     } catch (error) {
       console.error('Error updating goal:', error);
@@ -264,13 +255,10 @@ export default function GoalManager() {
   };
 
   const handleEditGoal = (goalId: string) => {
-    router.push(`/goals/${goalId}/edit`);
+    router.push(`/goals/${goalId}`);
   };
 
   const handleDeleteGoal = async (goalId: string) => {
-    const confirmed = window.confirm('Are you sure you want to delete this goal?');
-    if (!confirmed) return;
-
     try {
       const response = await fetch(`http://localhost:8005/api/goals/${goalId}`, {
         method: 'DELETE',
@@ -280,71 +268,46 @@ export default function GoalManager() {
         throw new Error('Failed to delete goal');
       }
 
-      // Recursively filter out the deleted goal and its subgoals
-      setGoals(prevGoals => {
-        const filterDeletedGoal = (goals: Goal[]): Goal[] => {
-          return goals
-            .filter(goal => goal.id !== goalId)
-            .map(goal => ({
-              ...goal,
-              subgoals: goal.subgoals ? filterDeletedGoal(goal.subgoals) : []
-            }));
-        };
-        return filterDeletedGoal(prevGoals);
-      });
+      // Refresh goals after successful deletion
+      fetchGoals();
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="space-y-8">
-          {/* Header */}
-          <div className="flex justify-between items-center">
-            <Typography variant="h4" component="h1">
-              My Goals
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleCreateGoal}
-            >
-              Create New Goal
-            </Button>
-          </div>
-
-          {/* Goals List */}
-          <div className="bg-white shadow rounded-lg">
-            <List>
-              {goals
-                .filter(goal => !goal.parent_id)
-                .map(goal => (
-                  <GoalItem
-                    key={goal.id}
-                    goal={goal}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onEdit={handleEditGoal}
-                    onDelete={handleDeleteGoal}
-                    onClick={handleGoalClick}
-                  />
-                ))}
-            </List>
-          </div>
+    <Container maxWidth="lg" className="py-8">
+      <Box className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex justify-between items-center mb-6">
+          <Typography variant="h4" component="h1" className="text-gray-900">
+            Goals
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleCreateGoal}
+          >
+            New Goal
+          </Button>
         </div>
-      </div>
 
-      <style jsx>{`
-        .goal-item.drag-over {
-          border: 2px dashed #4f46e5;
-          background-color: #f5f3ff;
-        }
-      `}</style>
-    </div>
+        <List className="space-y-1">
+          {goals.map(goal => (
+            <GoalItem
+              key={goal.id}
+              goal={goal}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onEdit={handleEditGoal}
+              onDelete={handleDeleteGoal}
+              onClick={handleGoalClick}
+            />
+          ))}
+        </List>
+      </Box>
+    </Container>
   );
 }
