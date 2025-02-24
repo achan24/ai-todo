@@ -339,3 +339,110 @@ curl -X POST http://localhost:8000/debug_priority -d '{"task_id": 123}'
     ]
 }
 This is the actual decision logic - no black boxes!
+
+
+Homepage is my goals.
+- Then when I click into a goal
+- Then I see my todos, milestones, metrics, and progress
+    - I can add todos in the goal page
+    - I can add milestones
+    - I can set target metrics 
+    - I can set process metrics
+    - I can connect todos with multiple target metrics, process metrics or milestones
+
+Updated Specification
+
+1. Overview
+
+This app helps users achieve goals by defining milestones (steps toward a goal) and tracking progress using target metrics (success conditions) and process metrics (effort tracking). Users can create todos that contribute to a milestone, a specific metric, or both. AI insights optimize workflow by suggesting the most effective actions.
+
+2. Core Features
+
+2.1 Goal Management
+Users can create, edit, and delete goals.
+Each goal has a title, description (why it matters), optional deadline.
+Goals can be active, paused, completed, or abandoned.
+Users can define milestones as intermediate steps to completing a goal.
+
+2.2 Milestones (Steps Toward a Goal)
+Users can create milestones within a goal.
+Each milestone includes:
+Title (e.g., "Launch MVP")
+Description (e.g., "Website live with basic features")
+Linked Target Metrics (if applicable)
+Progress Tracking (linked todos)
+Status (Not Started, In Progress, Completed)
+Milestones act as checkpoints toward achieving the goal.
+Users can link todos to a milestone, a target metric, a process metric, or a combination.
+
+2.3 Todos System (Tasks Linked to Metrics & Milestones)
+Users can create todos (tasks) under a goal and link them to:
+A Milestone (e.g., "Write landing page content" for "Launch MVP")
+A Target Metric (e.g., "Sell 10 subscriptions")
+A Process Metric (e.g., "Spend 5 hours coding")
+Multiple categories (e.g., "Complete website backend" contributes to both milestone completion and process metrics).
+Each todo includes:
+Description (e.g., "Write 1 blog post")
+Estimated Time (optional, e.g., "30 minutes")
+Linked Metric(s) / Milestone
+Completion Status (Pending, In Progress, Done)
+Impact Score (Low, Medium, High)
+
+2.4 Target Metrics (Success Criteria)
+Defines what it means to complete a goal.
+Each goal can have multiple success conditions.
+Users succeed if any target metric is met.
+Metric types:
+Numeric (e.g., “Earn €5,000”)
+Boolean (e.g., “Launch a website”)
+Percentage (e.g., “Achieve 90% test accuracy”)
+Visual progress bars track completion.
+
+2.5 Process Metrics (Effort Tracking)
+Measures the effort and time invested toward a goal.
+Includes:
+Time Spent (tracked automatically or manually logged).
+Actions Taken (e.g., workouts completed, articles written).
+Streak Tracking (consecutive days worked on goal).
+Efficiency Score = (Results Achieved) / (Time Spent).
+Heatmaps and trend-based graphs show consistency.
+
+2.6 Goal Dashboard (UI)
+Goal title & motivation displayed at the top.
+Target metrics section with progress bars.
+Process metrics section tracking time and effort.
+Milestones section showing steps toward the goal.
+Todos section showing linked milestones and metrics.
+Visual progress charts (graphs, heatmaps).
+AI-generated insights & recommendations to improve efficiency.
+
+2.7 AI-Powered Insights (Optional)
+AI analyzes efficiency and impact trends.
+AI suggests the best next todos based on historical performance.
+AI detects inefficiencies, e.g., "You spent 10 hours on this but made little progress—try a different approach?"
+Motivational nudges based on user habits.
+
+
+3. Implementation Plan
+
+Phase 1: Core Features
+ Goal Management (CRUD operations).
+ Milestone System (Create, edit, delete milestones).
+ Todos System (Create, edit, delete todos, link to metrics/milestones).
+ Target Metrics System (Multi-criteria tracking).
+ Process Metrics System (Time tracking, streaks).
+ Task Logging System (Impact-based sorting).
+ Basic Analytics & Visual Progress Dashboard.
+Phase 2: Advanced Features
+ AI-based todo recommendations.
+ AI-powered efficiency analysis.
+ Habit & streak tracking.
+ Weekly reflection insights.
+
+
+5. Success Metrics
+
+Goal completion rate: % of goals where at least one target metric is met.
+Milestone completion rate: % of milestones completed per goal.
+Task completion rate: % of todos linked to milestones/metrics successfully completed.
+Efficiency score improvements: % increase in results per time spent.

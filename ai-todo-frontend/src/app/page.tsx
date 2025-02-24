@@ -1,7 +1,7 @@
 'use client';
 
-import TaskManager from '@/components/TaskManager'
+import GoalManager from '@/components/GoalManager'
 
 export default function Home() {
-  return <TaskManager />
+  return <GoalManager />
 }

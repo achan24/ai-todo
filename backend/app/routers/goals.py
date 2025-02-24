@@ -4,7 +4,9 @@ from typing import List
 
 from ..database import get_db
 from ..models.goal import Goal
+from ..models.task import Task
 from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema
+from ..schemas.task import TaskCreate, Task as TaskSchema
 
 router = APIRouter(
     prefix="/goals",
@@ -80,3 +82,36 @@ async def delete_goal(
     db.delete(goal)
     db.commit()
     return {"message": "Goal deleted successfully"}
+
+@router.get("/{goal_id}/tasks", response_model=List[TaskSchema])
+async def get_goal_tasks(
+    goal_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get all tasks for a specific goal"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return db.query(Task).filter(Task.goal_id == goal_id).all()
+
+@router.post("/{goal_id}/tasks", response_model=TaskSchema)
+async def create_goal_task(
+    goal_id: int,
+    task: TaskCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new task for a goal"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    db_task = Task(
+        title=task.title,
+        description=task.description if task.description else None,
+        completed=False,
+        goal_id=goal_id
+    )
+    db.add(db_task)
+    db.commit()
+    db.refresh(db_task)
+    return db_task
