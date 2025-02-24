@@ -19,8 +19,14 @@ async def get_goals(
     skip: int = 0,
     limit: int = 100
 ):
-    """Get all goals for the current user"""
-    goals = db.query(Goal).filter(Goal.user_id == 1).offset(skip).limit(limit).all()
+    """Get all root goals (those without parents) for the current user"""
+    goals = (
+        db.query(Goal)
+        .filter(Goal.user_id == 1, Goal.parent_id.is_(None))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return goals
 
 @router.post("/", response_model=GoalSchema)
@@ -29,9 +35,16 @@ async def create_goal(
     db: Session = Depends(get_db)
 ):
     """Create a new goal"""
+    # If parent_id is provided, verify it exists
+    if goal.parent_id:
+        parent_goal = db.query(Goal).filter(Goal.id == goal.parent_id).first()
+        if not parent_goal:
+            raise HTTPException(status_code=404, detail="Parent goal not found")
+
     db_goal = Goal(
         title=goal.title,
         description=goal.description,
+        parent_id=goal.parent_id,
         user_id=1  # Hardcode user_id as 1 for now
     )
     db.add(db_goal)
@@ -40,15 +53,23 @@ async def create_goal(
     return db_goal
 
 @router.get("/{goal_id}", response_model=GoalSchema)
-async def get_goal(
+async def read_goal(
     goal_id: int,
     db: Session = Depends(get_db)
 ):
     """Get a specific goal by ID"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
-    if not goal:
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    if goal is None:
         raise HTTPException(status_code=404, detail="Goal not found")
     return goal
+
+@router.get("/", response_model=List[GoalSchema])
+async def read_goals(
+    db: Session = Depends(get_db)
+):
+    """Get all goals for the current user"""
+    goals = db.query(Goal).filter(Goal.user_id == 1).all()
+    return goals
 
 @router.put("/{goal_id}", response_model=GoalSchema)
 async def update_goal(
@@ -57,13 +78,31 @@ async def update_goal(
     db: Session = Depends(get_db)
 ):
     """Update a goal"""
-    db_goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
-    if not db_goal:
+    db_goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    if db_goal is None:
         raise HTTPException(status_code=404, detail="Goal not found")
     
-    update_data = goal_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_goal, field, value)
+    # Prevent circular references
+    if goal_update.parent_id:
+        if goal_update.parent_id == goal_id:
+            raise HTTPException(status_code=400, detail="Goal cannot be its own parent")
+        
+        # Check if the new parent is a descendant of this goal
+        def is_descendant(parent_id: int, target_id: int) -> bool:
+            parent = db.query(Goal).filter(Goal.id == parent_id).first()
+            if not parent:
+                return False
+            if parent.parent_id == target_id:
+                return True
+            if parent.parent_id:
+                return is_descendant(parent.parent_id, target_id)
+            return False
+        
+        if is_descendant(goal_update.parent_id, goal_id):
+            raise HTTPException(status_code=400, detail="Cannot move goal under its own descendant")
+
+    for key, value in goal_update.dict(exclude_unset=True).items():
+        setattr(db_goal, key, value)
     
     db.commit()
     db.refresh(db_goal)

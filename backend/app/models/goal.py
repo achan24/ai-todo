@@ -12,6 +12,9 @@ class Goal(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user_id = Column(Integer, default=1)  # Hardcode user_id as 1 for now
+    parent_id = Column(Integer, ForeignKey('goals.id', ondelete='CASCADE'), nullable=True)
 
-    # Relationship with tasks
+    # Relationships
     tasks = relationship("Task", back_populates="goal", cascade="all, delete-orphan")
+    parent = relationship("Goal", remote_side=[id], back_populates="subgoals")
+    subgoals = relationship("Goal", back_populates="parent", cascade="all, delete-orphan")

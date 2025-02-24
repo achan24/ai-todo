@@ -19,27 +19,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add new columns to tasks table
-    op.add_column('tasks', sa.Column('estimated_minutes', sa.Integer(), nullable=True))
+    # Add only the columns that don't exist yet
     op.add_column('tasks', sa.Column('completion_time', sa.DateTime(), nullable=True))
     op.add_column('tasks', sa.Column('completion_order', sa.Integer(), nullable=True))
     op.add_column('tasks', sa.Column('goal_id', sa.Integer(), nullable=True))
     
     # Add foreign key for goal_id
-    op.create_foreign_key(
-        'fk_tasks_goals',
-        'tasks', 'goals',
-        ['goal_id'], ['id'],
-        ondelete='SET NULL'
-    )
+    with op.batch_alter_table('tasks') as batch_op:
+        batch_op.create_foreign_key(
+            'fk_tasks_goals',
+            'goals',
+            ['goal_id'], ['id'],
+            ondelete='SET NULL'
+        )
 
 
 def downgrade() -> None:
     # Remove foreign key first
-    op.drop_constraint('fk_tasks_goals', 'tasks', type_='foreignkey')
+    with op.batch_alter_table('tasks') as batch_op:
+        batch_op.drop_constraint('fk_tasks_goals', type_='foreignkey')
     
     # Remove columns
     op.drop_column('tasks', 'goal_id')
     op.drop_column('tasks', 'completion_order')
     op.drop_column('tasks', 'completion_time')
-    op.drop_column('tasks', 'estimated_minutes')
