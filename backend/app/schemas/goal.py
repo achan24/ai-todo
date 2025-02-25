@@ -51,16 +51,12 @@ class GoalUpdate(BaseModel):
 
 class Goal(GoalBase):
     id: int
+    user_id: int
     created_at: datetime
     updated_at: datetime
-    user_id: int = 1
-    tasks: List[Task] = []
     metrics: List[Metric] = []
+    subgoals: List['Goal'] = []
+    tasks: List[Task] = []
 
     class Config:
         from_attributes = True
-
-class GoalWithChildren(Goal):
-    children: List['GoalWithChildren'] = []
-
-Goal.model_rebuild()  # This is needed for the self-referential type hint to work

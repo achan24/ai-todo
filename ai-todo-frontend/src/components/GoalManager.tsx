@@ -58,9 +58,8 @@ const GoalItem = ({
   const hasSubgoals = goal.subgoals && goal.subgoals.length > 0;
 
   return (
-    <>
-      <li 
-        key={goal.id} 
+    <div>
+      <div 
         className={`goal-item relative hover:bg-gray-50 cursor-pointer ${
           level === 0 
             ? 'px-4 py-4 sm:px-6 mb-4 rounded-lg border border-gray-200 shadow-sm' 
@@ -165,24 +164,26 @@ const GoalItem = ({
             </IconButton>
           </div>
         </div>
-      </li>
+      </div>
       {hasSubgoals && !isCollapsed && (
-        goal.subgoals.map(subgoal => (
-          <GoalItem 
-            key={subgoal.id} 
-            goal={subgoal} 
-            level={level + 1}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onClick={onClick}
-          />
-        ))
+        <div>
+          {goal.subgoals.map(subgoal => (
+            <GoalItem 
+              key={subgoal.id} 
+              goal={subgoal} 
+              level={level + 1}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onClick={onClick}
+            />
+          ))}
+        </div>
       )}
-    </>
+    </div>
   );
 };
 
@@ -398,19 +399,21 @@ export default function GoalManager() {
         </div>
 
         <List className="space-y-1">
-          {goals.map(goal => (
-            <GoalItem
-              key={goal.id}
-              goal={goal}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onEdit={handleEditGoal}
-              onDelete={handleDeleteGoal}
-              onClick={handleGoalClick}
-            />
-          ))}
+          {goals
+            .filter(goal => !goal.parent_id)
+            .map(goal => (
+              <GoalItem 
+                key={goal.id} 
+                goal={goal}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onEdit={handleEditGoal}
+                onDelete={handleDeleteGoal}
+                onClick={handleGoalClick}
+              />
+            ))}
         </List>
       </Box>
 

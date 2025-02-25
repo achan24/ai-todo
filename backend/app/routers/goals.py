@@ -19,15 +19,18 @@ async def get_goals(
     skip: int = 0,
     limit: int = 100
 ):
-    """Get all root goals (those without parents) for the current user"""
+    """Get all goals for the current user with their subgoals"""
+    # Get all goals for the current user
     goals = (
         db.query(Goal)
-        .filter(Goal.user_id == 1, Goal.parent_id.is_(None))
-        .offset(skip)
-        .limit(limit)
+        .filter(Goal.user_id == 1)
+        .order_by(Goal.created_at.desc())
         .all()
     )
-    return goals
+    
+    # Return only top-level goals (those without parents)
+    # SQLAlchemy will automatically handle the subgoals relationship
+    return [goal for goal in goals if goal.parent_id is None]
 
 @router.post("/", response_model=GoalSchema)
 async def create_goal(
@@ -62,14 +65,6 @@ async def read_goal(
     if goal is None:
         raise HTTPException(status_code=404, detail="Goal not found")
     return goal
-
-@router.get("/", response_model=List[GoalSchema])
-async def read_goals(
-    db: Session = Depends(get_db)
-):
-    """Get all goals for the current user"""
-    goals = db.query(Goal).filter(Goal.user_id == 1).all()
-    return goals
 
 @router.put("/{goal_id}", response_model=GoalSchema)
 async def update_goal(
