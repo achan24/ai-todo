@@ -1,9 +1,11 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text, Float, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.dialects import sqlite
 from datetime import datetime
 import enum
 from ..database import Base
+from .task import Task
 
 class MetricType(str, enum.Enum):
     target = "target"
@@ -19,12 +21,14 @@ class Metric(Base):
     unit = Column(String, nullable=False)
     target_value = Column(Float, nullable=True)
     current_value = Column(Float, nullable=False, default=0)
+    contributions_list = Column(sqlite.JSON, nullable=False, server_default='[]')  # [{value: float, task_id: int, timestamp: str}]
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
 
-    # Relationship
+    # Relationships
     goal = relationship("Goal", back_populates="metrics")
+    tasks = relationship("Task", back_populates="metric")
 
 class Goal(Base):
     __tablename__ = "goals"

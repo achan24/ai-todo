@@ -19,6 +19,14 @@ class MetricBase(BaseModel):
 class MetricCreate(MetricBase):
     pass
 
+class MetricUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    unit: Optional[str] = None
+    target_value: Optional[float] = None
+    current_value: Optional[float] = None
+
 class Metric(MetricBase):
     id: int
     goal_id: int

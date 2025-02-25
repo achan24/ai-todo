@@ -1,44 +1,41 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship, backref
-from datetime import datetime
-import enum
+from sqlalchemy.sql import func
+from enum import Enum
+from typing import Optional
+
 from ..database import Base
 
-class PriorityEnum(str, enum.Enum):
-    low = "low"
-    medium = "medium"
+class PriorityEnum(str, Enum):
     high = "high"
+    medium = "medium"
+    low = "low"
 
 class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    description = Column(String, nullable=True)
-    completed = Column(Boolean, default=False)
-    priority = Column(Enum(PriorityEnum), default=PriorityEnum.medium)
+    title = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    completed = Column(Boolean, default=False, nullable=False)
+    priority = Column(SQLEnum(PriorityEnum), default=PriorityEnum.medium)
     due_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    tags = Column(JSON, nullable=True, default=list)
-    estimated_minutes = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     user_id = Column(Integer, default=1)
     parent_id = Column(Integer, ForeignKey('tasks.id', ondelete='CASCADE'), nullable=True)
+    estimated_minutes = Column(Integer, nullable=True)
     goal_id = Column(Integer, ForeignKey('goals.id', ondelete='SET NULL'), nullable=True)
-
-    # Relationships
-    subtasks = relationship(
-        "Task",
-        backref=backref('parent', remote_side=[id]),
-        cascade="all, delete-orphan",
-        lazy='joined'
-    )
-    goal = relationship("Goal", back_populates="tasks")
-    
-    # Task completion tracking
+    metric_id = Column(Integer, ForeignKey('metrics.id', ondelete='SET NULL'), nullable=True)
+    contribution_value = Column(Float, nullable=True)
     completion_time = Column(DateTime, nullable=True)
     completion_order = Column(Integer, nullable=True)
-
-    def __init__(self, **kwargs):
-        kwargs['tags'] = kwargs.get('tags', [])
-        super().__init__(**kwargs)
+    tags = Column(JSON, nullable=True, default=list)
+    
+    # Relationships
+    subtasks = relationship("Task", 
+                          cascade="all, delete-orphan",
+                          backref=backref('parent', remote_side=[id]),
+                          lazy='joined')
+    goal = relationship("Goal", back_populates="tasks")
+    metric = relationship("Metric", back_populates="tasks")

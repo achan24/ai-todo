@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react';
 import { TagIcon } from '@heroicons/react/24/solid';
 
+interface Metric {
+  id: number;
+  name: string;
+  unit: string;
+  current_value: number;
+  target_value?: number;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -12,6 +20,8 @@ interface Task {
   dueDate?: string;
   tags: string[];
   estimated_minutes?: number;
+  metric_id?: number | null;
+  contribution_value?: number;
 }
 
 interface EditTaskModalProps {
@@ -29,6 +39,8 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
   const [tags, setTags] = useState<string[]>(task?.tags || []);
   const [newTag, setNewTag] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState(task?.estimated_minutes || '');
+  const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [selectedMetricId, setSelectedMetricId] = useState<number | null | undefined>(task?.metric_id);
 
   useEffect(() => {
     if (task) {
@@ -39,8 +51,16 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
       setTags(task.tags || []);
       setNewTag('');
       setEstimatedMinutes(task.estimated_minutes || '');
+      setSelectedMetricId(task.metric_id);
     }
   }, [task]);
+
+  useEffect(() => {
+    fetch('http://localhost:8005/api/metrics')
+      .then(res => res.json())
+      .then(data => setMetrics(data))
+      .catch(err => console.error('Error fetching metrics:', err));
+  }, []);
 
   const handleAddTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -61,7 +81,8 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
       priority,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
       tags,
-      estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
+      estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes.toString()) : undefined,
+      metric_id: selectedMetricId === undefined ? null : selectedMetricId,
     });
     onClose();
   };
@@ -76,135 +97,101 @@ export default function EditTaskModal({ task, isOpen, onClose, onSave }: EditTas
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                Title
-              </label>
+              <label>Title</label>
               <input
                 type="text"
-                id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                Description
-              </label>
+              <label>Description</label>
               <textarea
-                id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700">
-                Priority
-              </label>
+              <label>Priority</label>
               <select
-                id="priority"
                 value={priority}
-                onChange={(e) => setPriority(e.target.value as 'high' | 'medium' | 'low')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                onChange={(e) => setPriority(e.target.value as Task['priority'])}
               >
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
                 <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
               </select>
             </div>
 
             <div>
-              <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">
-                Due Date
-              </label>
-              <input
-                type="date"
-                id="dueDate"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
+              <label>Metric</label>
+              <select
+                value={selectedMetricId === null ? '' : selectedMetricId}
+                onChange={(e) => setSelectedMetricId(e.target.value === '' ? null : parseInt(e.target.value))}
+              >
+                <option value="">No Metric</option>
+                {metrics.map(metric => (
+                  <option key={metric.id} value={metric.id}>
+                    {metric.name} ({metric.unit})
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="mt-4">
-              <label htmlFor="estimated_minutes" className="block text-sm font-medium text-gray-700">
-                Estimated Time (minutes)
-              </label>
+            <div>
+              <label>Due Date</label>
               <input
-                type="number"
-                name="estimated_minutes"
-                id="estimated_minutes"
-                min="0"
-                value={estimatedMinutes}
-                onChange={(e) => setEstimatedMinutes(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Tags</label>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                  >
-                    <TagIcon className="h-3 w-3 mr-1" />
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 text-blue-400 hover:text-blue-600"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="mt-2 flex">
+              <label>Estimated Time (minutes)</label>
+              <input
+                type="number"
+                value={estimatedMinutes}
+                onChange={(e) => setEstimatedMinutes(e.target.value)}
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label>Tags</label>
+              <div>
                 <input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddTag();
-                    }
-                  }}
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                   placeholder="Add a tag"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
                 <button
                   type="button"
                   onClick={handleAddTag}
-                  className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Add
                 </button>
               </div>
+              <div>
+                {tags.map((tag, index) => (
+                  <span key={index}>
+                    <TagIcon /> {tag}
+                    <button type="button" onClick={() => handleRemoveTag(tag)}>×</button>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Save Changes
-            </button>
+          <div>
+            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="submit">Save</button>
           </div>
         </form>
       </div>

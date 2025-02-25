@@ -37,6 +37,8 @@ interface Task {
   user_id: number;
   parent_id: number | null;
   goal_id: number | null;
+  metric_id: number | null;
+  contribution_value: number | null;
   subtasks: Task[];
   completion_time: string | null;
   completion_order: number | null;
@@ -271,15 +273,23 @@ interface EditTaskDialogProps {
   task: Task | null;
   onClose: () => void;
   onSave: (task: Task) => void;
+  metrics: Metric[];
 }
 
-const EditTaskDialog = ({ open, task, onClose, onSave }: EditTaskDialogProps) => {
+const EditTaskDialog = ({ open, task, onClose, onSave, metrics }: EditTaskDialogProps) => {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [newTag, setNewTag] = useState('');
+  const [selectedMetric, setSelectedMetric] = useState<Metric | null>(null);
 
   useEffect(() => {
     setEditedTask(task);
-  }, [task]);
+    if (task?.metric_id) {
+      const metric = metrics.find(m => m.id === task.metric_id);
+      setSelectedMetric(metric || null);
+    } else {
+      setSelectedMetric(null);
+    }
+  }, [task, metrics]);
 
   if (!editedTask) return null;
 
@@ -349,6 +359,47 @@ const EditTaskDialog = ({ open, task, onClose, onSave }: EditTaskDialogProps) =>
             <MenuItem value="medium">Medium</MenuItem>
             <MenuItem value="low">Low</MenuItem>
           </TextField>
+          <TextField
+            select
+            fullWidth
+            label="Metric"
+            value={editedTask.metric_id || ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              const metricId = value === '' ? null : parseInt(value);
+              const metric = metrics.find(m => m.id === metricId);
+              setSelectedMetric(metric || null);
+              setEditedTask({
+                ...editedTask,
+                metric_id: metricId,
+                contribution_value: null // Reset contribution when metric changes
+              });
+            }}
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="">No Metric</MenuItem>
+            {metrics.map(metric => (
+              <MenuItem key={metric.id} value={metric.id}>
+                {metric.name} ({metric.unit})
+              </MenuItem>
+            ))}
+          </TextField>
+          {selectedMetric && (
+            <TextField
+              fullWidth
+              type="number"
+              label={`Contribution (${selectedMetric.unit})`}
+              value={editedTask.contribution_value || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setEditedTask({
+                  ...editedTask,
+                  contribution_value: value === '' ? null : parseFloat(value)
+                });
+              }}
+              sx={{ mb: 2 }}
+            />
+          )}
           <TextField
             fullWidth
             type="number"
@@ -476,6 +527,8 @@ export default function GoalPage() {
           tags: task.tags || [],
           estimated_minutes: task.estimated_minutes || null,
           priority: task.priority || null,
+          metric_id: task.metric_id || null,
+          contribution_value: task.contribution_value || null,
           subtasks: task.subtasks || []
         })));
       }
@@ -505,6 +558,8 @@ export default function GoalPage() {
           tags: [],
           parent_id: null,
           estimated_minutes: null,
+          metric_id: null,
+          contribution_value: null,
         }),
       });
 
@@ -520,6 +575,8 @@ export default function GoalPage() {
         tags: newTask.tags || [], 
         estimated_minutes: newTask.estimated_minutes || null,
         priority: newTask.priority || 'medium',
+        metric_id: newTask.metric_id || null,
+        contribution_value: newTask.contribution_value || null,
         subtasks: newTask.subtasks || []
       }]);
       setNewTaskTitle('');
@@ -554,6 +611,8 @@ export default function GoalPage() {
                 tags: updatedTask.tags || [],
                 priority: updatedTask.priority || null,
                 estimated_minutes: updatedTask.estimated_minutes || null,
+                metric_id: updatedTask.metric_id || null,
+                contribution_value: updatedTask.contribution_value || null,
                 subtasks: task.subtasks // preserve subtasks
               };
             }
@@ -891,7 +950,7 @@ export default function GoalPage() {
                         <div
                           className="h-full bg-blue-500 rounded-full"
                           style={{
-                            width: `${((metric.current_value || 0) / (metric.target_value || 1)) * 100}%`
+                            width: `${Math.min(((metric.current_value || 0) / (metric.target_value || 1)) * 100, 100)}%`
                           }}
                         />
                       </div>
@@ -1072,6 +1131,7 @@ export default function GoalPage() {
         task={editingTask}
         onClose={() => setEditingTask(null)}
         onSave={handleUpdateTask}
+        metrics={goal?.metrics || []}
       />
 
       <style jsx>{`

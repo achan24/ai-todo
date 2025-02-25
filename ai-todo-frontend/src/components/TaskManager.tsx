@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/solid';
 import EditTaskModal from './EditTaskModal';
+import ContributionDialog from './ContributionDialog';
 
 interface Task {
   id: number;
@@ -16,6 +17,8 @@ interface Task {
   estimated_minutes?: number;
   due_date?: string;
   subtasks?: Task[];
+  metric_id?: number | null;
+  contribution_value?: number;
 }
 
 interface TaskItemProps {
@@ -175,6 +178,8 @@ export default function TaskManager() {
   const [isLoading, setIsLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isContributionDialogOpen, setIsContributionDialogOpen] = useState(false);
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [recommendedTask, setRecommendedTask] = useState<Task | null>(null);
 
   // Fetch tasks
@@ -234,40 +239,73 @@ export default function TaskManager() {
   };
 
   // Toggle task completion
-  const toggleTaskCompletion = async (taskId: number, currentStatus: boolean) => {
+  const handleToggleComplete = async (taskId: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
-        method: 'PUT',
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      if (!currentStatus && task.metric_id) {
+        // If completing a task with a metric, show contribution dialog
+        setCompletingTask(task);
+        setIsContributionDialogOpen(true);
+        return;
+      }
+
+      // Otherwise just toggle completion
+      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}/complete`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          completed: !currentStatus,
+          contribution_value: null,
+          metric_id: null
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update task');
+      if (response.ok) {
+        setTasks(tasks.map(task => 
+          task.id === taskId ? { ...task, completed: !currentStatus } : task
+        ));
       }
-
-      // Update the task in the state
-      setTasks(prevTasks => {
-        const updateTaskCompletion = (tasks: Task[]): Task[] => {
-          return tasks.map(task => {
-            if (task.id === taskId) {
-              return { ...task, completed: !currentStatus };
-            }
-            if (task.subtasks) {
-              return { ...task, subtasks: updateTaskCompletion(task.subtasks) };
-            }
-            return task;
-          });
-        };
-        return updateTaskCompletion(prevTasks);
-      });
     } catch (error) {
-      console.error('Error updating task:', error);
+      console.error('Error toggling task completion:', error);
     }
+  };
+
+  const handleContributionSubmit = async (contribution: { metric_id: number; contribution_value: number }) => {
+    if (!completingTask) return;
+
+    try {
+      const response = await fetch(`http://localhost:8005/api/tasks/${completingTask.id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contribution),
+      });
+
+      if (response.ok) {
+        // Update tasks state
+        setTasks(tasks.map(task => 
+          task.id === completingTask.id ? { ...task, completed: true } : task
+        ));
+
+        // Fetch updated metric data
+        const metricResponse = await fetch(`http://localhost:8005/api/metrics/${contribution.metric_id}`);
+        if (metricResponse.ok) {
+          const updatedMetric = await metricResponse.json();
+          // Update the metric in any components that need it
+          // This will trigger a re-render of components using this metric
+          const event = new CustomEvent('metricUpdated', { detail: updatedMetric });
+          window.dispatchEvent(event);
+        }
+      }
+    } catch (error) {
+      console.error('Error completing task with contribution:', error);
+    }
+
+    setCompletingTask(null);
   };
 
   // Update task
@@ -278,7 +316,10 @@ export default function TaskManager() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          ...updates,
+          metric_id: updates.metric_id === undefined ? null : updates.metric_id
+        }),
       });
 
       if (!response.ok) {
@@ -302,6 +343,8 @@ export default function TaskManager() {
         };
         return updateTaskInTree(prevTasks);
       });
+      setIsEditModalOpen(false);
+      setEditingTask(null);
     } catch (error) {
       console.error('Error updating task:', error);
     }
@@ -462,7 +505,7 @@ export default function TaskManager() {
                       Confidence: {Math.round(recommendedTask.ai_confidence * 100)}%
                     </div>
                     <button
-                      onClick={() => toggleTaskCompletion(recommendedTask.id, recommendedTask.completed)}
+                      onClick={() => handleToggleComplete(recommendedTask.id, recommendedTask.completed)}
                       className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
                     >
                       Start Now
@@ -543,7 +586,7 @@ export default function TaskManager() {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  onToggleComplete={toggleTaskCompletion}
+                  onToggleComplete={handleToggleComplete}
                   onEdit={(task) => {
                     setEditingTask(task);
                     setIsEditModalOpen(true);
@@ -567,6 +610,18 @@ export default function TaskManager() {
                 handleUpdateTask(editingTask.id, updates);
               }
             }}
+          />
+
+          {/* Contribution Dialog */}
+          <ContributionDialog
+            isOpen={isContributionDialogOpen}
+            onClose={() => {
+              setIsContributionDialogOpen(false);
+              setCompletingTask(null);
+            }}
+            onSubmit={handleContributionSubmit}
+            metricId={completingTask?.metric_id}
+            initialValue={completingTask?.contribution_value}
           />
         </div>
       </div>

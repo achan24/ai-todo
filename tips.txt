@@ -77,3 +77,41 @@ op.rename_table('table_new', 'table')
 - SQLite treats booleans as integers
 - When adding NOT NULL constraints, provide default values for existing NULL data
 - Always clean up temporary tables from failed migrations with DROP TABLE IF EXISTS
+
+6. Model Creation
+----------------
+ALWAYS CHECK EXISTING MODELS BEFORE CREATING NEW ONES:
+- The Metric model already exists in models/goal.py
+- Don't create duplicate models in separate files
+- Look through existing code thoroughly before making changes
+
+7. Model Organization
+-------------------
+- Models should be defined in a single location to avoid duplicate table definitions in SQLAlchemy
+- If a model is closely related to another (like Metric is to Goal), define it in the same file
+- Import models through __init__.py to maintain clean imports (e.g., from ..models import Metric instead of from ..models.metric import Metric)
+
+8. Component Naming Consistency
+----------------------
+- NEVER have multiple components that do the same thing with different names (e.g. EditTaskModal vs EditTaskDialog)
+- Pick ONE clear, descriptive name and stick with it throughout the app
+- Bad: Having EditTaskModal.tsx and EditTaskDialog.tsx doing the same thing
+- Good: Pick EditTaskDialog.tsx and use it everywhere - the name describes what it does, not how it looks
+- This makes the codebase more intuitive and prevents confusion when adding new features
+
+9. Don't fucking rename anything unless specifically asked to and permission is given.
+
+10. Metric model is in Goal model.
+
+11. Alembic Migration Tips
+----------------------
+- When a migration fails, check for leftover temporary tables (e.g. tasks_new) from previous attempts and clean them up
+- For SQLite migrations that modify tables:
+  1. Create a new table with the desired schema
+  2. Copy all data from old table to new, being explicit about column order
+  3. Drop the old table
+  4. Rename the new table to the original name
+- Index names must be unique across the entire database
+- Always handle both upgrade() and downgrade() paths in migrations
+- Test migrations on a copy of the database first
+- When copying data between tables, explicitly list all columns to avoid issues with schema changes

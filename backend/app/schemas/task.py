@@ -12,6 +12,8 @@ class TaskBase(BaseModel):
     parent_id: Optional[int] = None
     estimated_minutes: Optional[int] = Field(None, ge=0)
     goal_id: Optional[int] = None
+    metric_id: Optional[int] = None
+    contribution_value: Optional[float] = None
 
 class TaskCreate(TaskBase):
     pass
@@ -26,6 +28,12 @@ class TaskUpdate(BaseModel):
     parent_id: Optional[int] = None
     estimated_minutes: Optional[int] = Field(None, ge=0)
     goal_id: Optional[int] = None
+    metric_id: Optional[int] = None
+    contribution_value: Optional[float] = None
+
+class TaskComplete(BaseModel):
+    contribution_value: Optional[float] = None
+    metric_id: Optional[int] = None
 
 class Task(TaskBase):
     id: int

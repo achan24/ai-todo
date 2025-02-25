@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-from ..models.task import Task
+from ..models import Task, Metric
 from ..schemas.task import TaskCreate, TaskUpdate, TaskWithAIRecommendation
 
 async def get_tasks(db: Session, user_id: int, skip: int = 0, limit: int = 100, completed: Optional[bool] = None) -> List[Task]:
@@ -74,7 +74,41 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
             Task.completion_order.isnot(None)
         ).order_by(Task.completion_order.desc()).first()
         db_task.completion_order = (last_completed.completion_order + 1) if last_completed else 1
+        
+        # If there's a metric contribution, add it to the metric's contributions list
+        if db_task.metric_id and db_task.contribution_value:
+            metric = db.query(Metric).filter(Metric.id == db_task.metric_id).first()
+            if metric:
+                # Add contribution to list
+                contribution = {
+                    'value': db_task.contribution_value,
+                    'task_id': db_task.id,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                if metric.contributions_list is None:
+                    metric.contributions_list = []
+                metric.contributions_list.append(contribution)
+                
+                # Update current value
+                metric.current_value = sum(c['value'] for c in metric.contributions_list)
+                db.add(metric)
     
+    # If task is being uncompleted, remove its contribution from the metric
+    elif update_data.get('completed') is False and db_task.completion_time:
+        db_task.completion_time = None
+        db_task.completion_order = None
+        
+        # Remove contribution from metric if it exists
+        if db_task.metric_id and db_task.contribution_value:
+            metric = db.query(Metric).filter(Metric.id == db_task.metric_id).first()
+            if metric and metric.contributions_list:
+                # Remove all contributions from this task
+                metric.contributions_list = [c for c in metric.contributions_list if c['task_id'] != db_task.id]
+                # Update current value
+                metric.current_value = sum(c['value'] for c in metric.contributions_list)
+                db.add(metric)
+    
+    db.add(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task
