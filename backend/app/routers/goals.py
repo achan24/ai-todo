@@ -144,11 +144,22 @@ async def create_goal_task(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     
+    # If parent_id is provided, verify it exists
+    if task.parent_id:
+        parent_task = db.query(Task).filter(Task.id == task.parent_id).first()
+        if not parent_task:
+            raise HTTPException(status_code=404, detail="Parent task not found")
+    
     db_task = Task(
         title=task.title,
-        description=task.description if task.description else None,
-        completed=False,
-        goal_id=goal_id
+        description=task.description,
+        priority=task.priority,
+        due_date=task.due_date,
+        tags=task.tags,
+        parent_id=task.parent_id,
+        estimated_minutes=task.estimated_minutes,
+        goal_id=goal_id,
+        user_id=1  # Hardcoded for now
     )
     db.add(db_task)
     db.commit()

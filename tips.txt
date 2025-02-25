@@ -1,0 +1,79 @@
+SQLite Migration Tips
+====================
+
+1. SQLite Limitations
+-------------------
+- SQLite DOES NOT support ALTER TABLE for:
+  * Adding constraints (like NOT NULL)
+  * Changing column types
+  * Renaming columns
+  * Dropping columns
+
+2. Correct Migration Pattern for SQLite
+------------------------------------
+When needing to modify tables, ALWAYS use this pattern:
+1. Drop temporary tables if they exist from previous failed migrations
+2. Create new table with desired schema
+3. Copy data from old table to new table (use COALESCE for NULL values)
+4. Drop old table
+5. Rename new table to original name
+
+Example:
+```python
+# Clean up any failed migrations
+op.execute('DROP TABLE IF EXISTS table_new')
+
+# Create new table
+op.create_table(
+    'table_new',
+    sa.Column('id', sa.Integer(), nullable=False),
+    # ... other columns
+)
+
+# Copy data with NULL handling
+op.execute('''
+    INSERT INTO table_new 
+    SELECT 
+        id,
+        COALESCE(nullable_field, default_value),
+        other_field 
+    FROM table
+''')
+
+# Drop old table
+op.drop_table('table')
+
+# Rename new table
+op.rename_table('table_new', 'table')
+```
+
+3. DateTime Fields in SQLite
+-------------------------
+- Always use server_default for created_at and updated_at
+- Correct format:
+  ```python
+  created_at = Column(DateTime(timezone=True), 
+                     server_default=sa.text('CURRENT_TIMESTAMP'),
+                     nullable=False)
+  updated_at = Column(DateTime(timezone=True),
+                     server_default=sa.text('CURRENT_TIMESTAMP'),
+                     onupdate=sa.text('CURRENT_TIMESTAMP'),
+                     nullable=False)
+  ```
+
+4. Foreign Keys
+-------------
+- Always specify ondelete behavior
+- Example:
+  ```python
+  parent_id = Column(Integer, ForeignKey('parent.id', ondelete='CASCADE'))
+  ```
+
+5. Common Gotchas
+---------------
+- Always handle nullable fields explicitly with COALESCE in migrations
+- Use Text type for long string fields
+- Remember to create indexes where needed
+- SQLite treats booleans as integers
+- When adding NOT NULL constraints, provide default values for existing NULL data
+- Always clean up temporary tables from failed migrations with DROP TABLE IF EXISTS

@@ -1,32 +1,46 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button, Container, Typography, Box, List, ListItem, IconButton } from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { Button, Container, Typography, Box, List, ListItem, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { PencilIcon, TrashIcon, ClockIcon } from '@heroicons/react/24/solid';
-import { useRouter } from 'next/navigation';
 
 interface Goal {
-  id: string;
+  id: number;
   title: string;
   description: string;
-  importance: string;
-  deadline: string;
-  progress: number;
-  parent_id?: string | null;
+  importance?: string;
+  deadline?: string;
+  progress?: number;
+  parent_id?: number | null;
   subgoals?: Goal[];
 }
 
 interface GoalItemProps {
   goal: Goal;
   level?: number;
-  onDragStart: (e: React.DragEvent, goalId: string) => void;
+  onDragStart: (e: React.DragEvent, goalId: number) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, goalId: string) => void;
-  onEdit: (goalId: string) => void;
-  onDelete: (goalId: string) => void;
-  onClick: (goalId: string) => void;
+  onDrop: (e: React.DragEvent, goalId: number) => void;
+  onEdit: (goalId: number) => void;
+  onDelete: (goalId: number) => void;
+  onClick: (goalId: number) => void;
+}
+
+interface DeleteConfirmationDialogProps {
+  open: boolean;
+  goal: Goal | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+interface DeleteConfirmationInputDialogProps {
+  open: boolean;
+  goal: Goal | null;
+  onClose: () => void;
+  onConfirm: () => void;
 }
 
 const GoalItem = ({ 
@@ -141,9 +155,11 @@ const GoalItem = ({
               size="small"
               color="error"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 onDelete(goal.id);
               }}
+              className="z-10"
             >
               <TrashIcon className="h-4 w-4" />
             </IconButton>
@@ -170,8 +186,86 @@ const GoalItem = ({
   );
 };
 
+const DeleteConfirmationDialog = ({ open, goal, onClose, onConfirm }: DeleteConfirmationDialogProps) => {
+  if (!goal) return null;
+  
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Delete Goal</DialogTitle>
+      <DialogContent>
+        <Typography>
+          Are you sure you want to delete the goal "{goal.title}"? This will also delete all its subgoals.
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>No</Button>
+        <Button onClick={onConfirm} color="error">Yes</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const DeleteConfirmationInputDialog = ({ open, goal, onClose, onConfirm }: DeleteConfirmationInputDialogProps) => {
+  const [inputTitle, setInputTitle] = useState('');
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setInputTitle('');
+      setError(false);
+    }
+  }, [open]);
+
+  if (!goal) return null;
+
+  const handleConfirm = () => {
+    if (inputTitle === goal.title) {
+      onConfirm();
+    } else {
+      setError(true);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Confirm Deletion</DialogTitle>
+      <DialogContent>
+        <Typography gutterBottom>
+          To confirm deletion, please type the goal title:
+          <br />
+          <strong>{goal.title}</strong>
+        </Typography>
+        <TextField
+          autoFocus
+          fullWidth
+          value={inputTitle}
+          onChange={(e) => {
+            setInputTitle(e.target.value);
+            setError(false);
+          }}
+          error={error}
+          helperText={error ? "Title doesn't match" : ''}
+          margin="dense"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              handleConfirm();
+            }
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleConfirm} color="error">Delete</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 export default function GoalManager() {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showDeleteConfirmationInput, setShowDeleteConfirmationInput] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -181,11 +275,11 @@ export default function GoalManager() {
   const fetchGoals = async () => {
     try {
       const response = await fetch('http://localhost:8005/api/goals');
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
       const data = await response.json();
-      setGoals(data.map((goal: Goal) => ({
-        ...goal,
-        subgoals: goal.subgoals || []
-      })));
+      setGoals(data);
     } catch (error) {
       console.error('Error fetching goals:', error);
     }
@@ -195,16 +289,14 @@ export default function GoalManager() {
     router.push('/goals/new');
   };
 
-  const handleGoalClick = (goalId: string) => {
+  const handleGoalClick = (goalId: number) => {
     router.push(`/goals/${goalId}`);
   };
 
-  // Handle drag start
-  const handleDragStart = (e: React.DragEvent, goalId: string) => {
-    e.dataTransfer.setData('goalId', goalId);
+  const handleDragStart = (e: React.DragEvent, goalId: number) => {
+    e.dataTransfer.setData('goalId', goalId.toString());
   };
 
-  // Handle drag over
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     const target = e.target as HTMLElement;
@@ -214,7 +306,6 @@ export default function GoalManager() {
     }
   };
 
-  // Handle drag leave
   const handleDragLeave = (e: React.DragEvent) => {
     const target = e.target as HTMLElement;
     const goalItem = target.closest('.goal-item');
@@ -223,10 +314,9 @@ export default function GoalManager() {
     }
   };
 
-  // Handle drop
-  const handleDrop = async (e: React.DragEvent, targetGoalId: string) => {
+  const handleDrop = async (e: React.DragEvent, targetGoalId: number) => {
     e.preventDefault();
-    const draggedGoalId = e.dataTransfer.getData('goalId');
+    const draggedGoalId = parseInt(e.dataTransfer.getData('goalId'));
     
     if (draggedGoalId === targetGoalId) {
       return;
@@ -247,20 +337,34 @@ export default function GoalManager() {
         throw new Error('Failed to update goal');
       }
 
-      // Refresh goals after successful update
       fetchGoals();
     } catch (error) {
       console.error('Error updating goal:', error);
     }
   };
 
-  const handleEditGoal = (goalId: string) => {
+  const handleEditGoal = (goalId: number) => {
     router.push(`/goals/${goalId}`);
   };
 
-  const handleDeleteGoal = async (goalId: string) => {
+  const handleDeleteGoal = (goalId: number) => {
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    
+    setGoalToDelete(goal);
+    setShowDeleteConfirmation(true);
+  };
+
+  const handleDeleteConfirmation = () => {
+    setShowDeleteConfirmation(false);
+    setShowDeleteConfirmationInput(true);
+  };
+
+  const handleFinalDeleteConfirmation = async () => {
+    if (!goalToDelete) return;
+
     try {
-      const response = await fetch(`http://localhost:8005/api/goals/${goalId}`, {
+      const response = await fetch(`http://localhost:8005/api/goals/${goalToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -268,7 +372,8 @@ export default function GoalManager() {
         throw new Error('Failed to delete goal');
       }
 
-      // Refresh goals after successful deletion
+      setShowDeleteConfirmationInput(false);
+      setGoalToDelete(null);
       fetchGoals();
     } catch (error) {
       console.error('Error deleting goal:', error);
@@ -308,6 +413,26 @@ export default function GoalManager() {
           ))}
         </List>
       </Box>
+
+      <DeleteConfirmationDialog
+        open={showDeleteConfirmation}
+        goal={goalToDelete}
+        onClose={() => {
+          setShowDeleteConfirmation(false);
+          setGoalToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirmation}
+      />
+
+      <DeleteConfirmationInputDialog
+        open={showDeleteConfirmationInput}
+        goal={goalToDelete}
+        onClose={() => {
+          setShowDeleteConfirmationInput(false);
+          setGoalToDelete(null);
+        }}
+        onConfirm={handleFinalDeleteConfirmation}
+      />
     </Container>
   );
 }

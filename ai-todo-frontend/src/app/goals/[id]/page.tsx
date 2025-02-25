@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/solid';
+import AddIcon from '@mui/icons-material/Add';
 import {
   Container,
   Typography,
@@ -25,19 +26,37 @@ import {
 interface Task {
   id: number;
   title: string;
+  description: string | null;
   completed: boolean;
-  description?: string;
-  parent_id?: number | null;
+  priority: 'high' | 'medium' | 'low';
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
   tags: string[];
-  estimated_minutes?: number;
-  priority?: 'high' | 'medium' | 'low';
-  subtasks?: Task[];
+  estimated_minutes: number | null;
+  user_id: number;
+  parent_id: number | null;
+  goal_id: number | null;
+  subtasks: Task[];
+  completion_time: string | null;
+  completion_order: number | null;
+}
+
+interface Metric {
+  id?: number;
+  name: string;
+  description: string;
+  type: 'target' | 'process';
+  unit: string;
+  target_value: number;
+  current_value: number;
 }
 
 interface Goal {
-  id: string;
+  id: number;
   title: string;
   description: string;
+  metrics: Metric[];
 }
 
 interface TaskItemProps {
@@ -421,6 +440,15 @@ export default function GoalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showMetricModal, setShowMetricModal] = useState(false);
+  const [newMetric, setNewMetric] = useState<Partial<Metric>>({
+    name: '',
+    description: '',
+    type: 'target',
+    unit: '',
+    target_value: 0,
+    current_value: 0
+  });
 
   useEffect(() => {
     fetchGoalData();
@@ -435,7 +463,10 @@ export default function GoalPage() {
         throw new Error('Failed to fetch goal');
       }
       const data = await response.json();
-      setGoal(data);
+      setGoal({
+        ...data,
+        metrics: data.metrics || [] // Ensure metrics is always an array
+      });
 
       const tasksResponse = await fetch(`http://localhost:8005/api/goals/${params.id}/tasks`);
       if (tasksResponse.ok) {
@@ -468,13 +499,18 @@ export default function GoalPage() {
         },
         body: JSON.stringify({
           title: newTaskTitle,
+          description: null,
+          priority: 'medium',
+          due_date: null,
           tags: [],
+          parent_id: null,
           estimated_minutes: null,
-          priority: null,
         }),
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Server error:', errorData);
         throw new Error('Failed to add task');
       }
 
@@ -483,11 +519,13 @@ export default function GoalPage() {
         ...newTask, 
         tags: newTask.tags || [], 
         estimated_minutes: newTask.estimated_minutes || null,
-        priority: newTask.priority || null
+        priority: newTask.priority || 'medium',
+        subtasks: newTask.subtasks || []
       }]);
       setNewTaskTitle('');
     } catch (error) {
       console.error('Error adding task:', error);
+      throw error;
     }
   };
 
@@ -675,25 +713,102 @@ export default function GoalPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Paper sx={{ p: 3 }}>
-          <Typography>Loading goal details...</Typography>
-        </Paper>
-      </Container>
-    );
-  }
+  const handleAddMetric = async () => {
+    try {
+      // Validate required fields
+      if (!newMetric.name || !newMetric.unit) {
+        throw new Error('Name and unit are required');
+      }
 
-  if (error || !goal) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Paper sx={{ p: 3 }}>
-          <Typography color="error">{error || 'Goal not found'}</Typography>
-        </Paper>
-      </Container>
-    );
-  }
+      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/metrics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newMetric.name,
+          description: newMetric.description || '',
+          type: newMetric.type,
+          unit: newMetric.unit,
+          target_value: newMetric.type === 'target' ? (newMetric.target_value || 0) : null,
+          current_value: newMetric.current_value || 0,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to add metric');
+      }
+
+      const addedMetric = await response.json();
+      
+      // Update the goal's metrics array
+      setGoal(prevGoal => {
+        if (!prevGoal) return prevGoal;
+        return {
+          ...prevGoal,
+          metrics: [...prevGoal.metrics, addedMetric]
+        };
+      });
+
+      // Reset form and close modal
+      setShowMetricModal(false);
+      setNewMetric({
+        name: '',
+        description: '',
+        type: 'target',
+        unit: '',
+        target_value: 0,
+        current_value: 0
+      });
+    } catch (error: any) {
+      console.error('Error adding metric:', error);
+      alert(error.message || 'Failed to add metric');
+    }
+  };
+
+  const handleUpdateMetric = async (metricId: number, updates: Partial<Metric>) => {
+    try {
+      const response = await fetch(`http://localhost:8005/api/metrics/${metricId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update metric');
+      }
+
+      await fetchGoalData();
+    } catch (error) {
+      console.error('Error updating metric:', error);
+    }
+  };
+
+  const handleDeleteMetric = async (metricId: number) => {
+    const confirmed = window.confirm('Are you sure you want to delete this metric?');
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`http://localhost:8005/api/metrics/${metricId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete metric');
+      }
+
+      await fetchGoalData();
+    } catch (error) {
+      console.error('Error deleting metric:', error);
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!goal) return <div>Goal not found</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -701,7 +816,7 @@ export default function GoalPage() {
         <div className="space-y-8">
           {/* Header */}
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">{goal.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{goal?.title}</h1>
             <Button 
               variant="contained" 
               color="primary"
@@ -714,11 +829,112 @@ export default function GoalPage() {
           {/* Description */}
           <Paper className="p-6 bg-white shadow rounded-lg">
             <Typography variant="h6" gutterBottom>
-              Why this matters
+              Description
             </Typography>
             <Typography color="text.secondary">
-              {goal.description}
+              {goal?.description}
             </Typography>
+          </Paper>
+
+          {/* Metrics Section */}
+          <Paper className="p-6 bg-white shadow rounded-lg">
+            <div className="flex justify-between items-center mb-6">
+              <Typography variant="h6">
+                Metrics
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={() => setShowMetricModal(true)}
+                startIcon={<AddIcon />}
+              >
+                Add Metric
+              </Button>
+            </div>
+
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" className="font-semibold mb-3">
+                  Target Metrics
+                </Typography>
+                {goal?.metrics?.filter(m => m.type === 'target').map(metric => (
+                  <div key={metric.id} className="bg-white border rounded-lg p-4 mb-3 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <Typography variant="subtitle1" className="font-semibold">
+                          {metric.name}
+                        </Typography>
+                        {metric.description && (
+                          <Typography variant="body2" color="text.secondary">
+                            {metric.description}
+                          </Typography>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteMetric(metric.id)}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </IconButton>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center">
+                        <Typography variant="body2" color="text.secondary">
+                          Progress
+                        </Typography>
+                        <Typography variant="body2">
+                          {metric.current_value} / {metric.target_value || 0} {metric.unit}
+                        </Typography>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 rounded-full mt-1">
+                        <div
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{
+                            width: `${((metric.current_value || 0) / (metric.target_value || 1)) * 100}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" className="font-semibold mb-3">
+                  Process Metrics
+                </Typography>
+                {goal?.metrics?.filter(m => m.type === 'process').map(metric => (
+                  <div key={metric.id} className="bg-white border rounded-lg p-4 mb-3 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <Typography variant="subtitle1" className="font-semibold">
+                          {metric.name}
+                        </Typography>
+                        {metric.description && (
+                          <Typography variant="body2" color="text.secondary">
+                            {metric.description}
+                          </Typography>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteMetric(metric.id)}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </IconButton>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <Typography variant="h4" className="font-bold text-center">
+                        {metric.current_value || 0} {metric.unit}
+                      </Typography>
+                    </div>
+                  </div>
+                ))}
+              </Grid>
+            </Grid>
           </Paper>
 
           {/* Quick Add Task */}
@@ -775,6 +991,81 @@ export default function GoalPage() {
           </Paper>
         </div>
       </div>
+
+      {/* Add Metric Modal */}
+      <Dialog
+        open={showMetricModal}
+        onClose={() => setShowMetricModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add New Metric</DialogTitle>
+        <DialogContent>
+          <div className="space-y-4 mt-4">
+            <TextField
+              label="Name"
+              fullWidth
+              value={newMetric.name}
+              onChange={(e) => setNewMetric({ ...newMetric, name: e.target.value })}
+            />
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
+              rows={2}
+              value={newMetric.description}
+              onChange={(e) => setNewMetric({ ...newMetric, description: e.target.value })}
+            />
+            <TextField
+              select
+              label="Type"
+              fullWidth
+              value={newMetric.type}
+              onChange={(e) => setNewMetric({ ...newMetric, type: e.target.value as 'target' | 'process' })}
+            >
+              <MenuItem value="target">Target Metric</MenuItem>
+              <MenuItem value="process">Process Metric</MenuItem>
+            </TextField>
+            <TextField
+              label="Unit"
+              fullWidth
+              value={newMetric.unit}
+              onChange={(e) => setNewMetric({ ...newMetric, unit: e.target.value })}
+              placeholder="e.g., hours, pages, commits"
+              inputProps={{ type: 'text' }}
+            />
+            {newMetric.type === 'target' && (
+              <TextField
+                label="Target Value"
+                type="number"
+                fullWidth
+                value={newMetric.target_value}
+                onChange={(e) => setNewMetric({ ...newMetric, target_value: parseFloat(e.target.value) })}
+                inputProps={{ min: 0, step: 'any' }}
+              />
+            )}
+            <TextField
+              label="Current Value"
+              type="number"
+              fullWidth
+              value={newMetric.current_value}
+              onChange={(e) => setNewMetric({ ...newMetric, current_value: parseFloat(e.target.value) })}
+              inputProps={{ min: 0, step: 'any' }}
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowMetricModal(false)}>Cancel</Button>
+          <Button 
+            onClick={handleAddMetric} 
+            variant="contained" 
+            color="primary"
+            disabled={!newMetric.name || !newMetric.unit}
+          >
+            Add Metric
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <EditTaskDialog
         open={!!editingTask}

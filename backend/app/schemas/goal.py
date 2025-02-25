@@ -1,7 +1,32 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
+from enum import Enum
 from .task import Task
+
+class MetricType(str, Enum):
+    target = "target"
+    process = "process"
+
+class MetricBase(BaseModel):
+    name: str
+    description: str = ""
+    type: str  # Changed from MetricType to str to match frontend
+    unit: str
+    target_value: Optional[float] = None
+    current_value: float = 0
+
+class MetricCreate(MetricBase):
+    pass
+
+class Metric(MetricBase):
+    id: int
+    goal_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class GoalBase(BaseModel):
     title: str
@@ -9,7 +34,7 @@ class GoalBase(BaseModel):
     parent_id: Optional[int] = None
 
 class GoalCreate(GoalBase):
-    pass
+    parent_id: Optional[int] = None
 
 class GoalUpdate(BaseModel):
     title: Optional[str] = None
@@ -22,9 +47,12 @@ class Goal(GoalBase):
     updated_at: datetime
     user_id: int = 1
     tasks: List[Task] = []
-    subgoals: List['Goal'] = []
+    metrics: List[Metric] = []
 
     class Config:
         from_attributes = True
+
+class GoalWithChildren(Goal):
+    children: List['GoalWithChildren'] = []
 
 Goal.model_rebuild()  # This is needed for the self-referential type hint to work
