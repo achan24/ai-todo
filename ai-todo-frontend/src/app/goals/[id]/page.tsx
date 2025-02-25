@@ -500,6 +500,8 @@ export default function GoalPage() {
     target_value: 0,
     current_value: 0
   });
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState('');
 
   useEffect(() => {
     fetchGoalData();
@@ -865,6 +867,29 @@ export default function GoalPage() {
     }
   };
 
+  const handleUpdateDescription = async () => {
+    try {
+      const response = await fetch(`http://localhost:8005/api/goals/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: editedDescription
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update description');
+      }
+
+      setGoal(prev => prev ? { ...prev, description: editedDescription } : null);
+      setIsEditingDescription(false);
+    } catch (error) {
+      console.error('Error updating description:', error);
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!goal) return <div>Goal not found</div>;
@@ -887,13 +912,50 @@ export default function GoalPage() {
 
           {/* Description */}
           <Paper className="p-6 bg-white shadow rounded-lg">
-            <Typography variant="h6" gutterBottom>
-              Description
-            </Typography>
+            <div className="flex justify-between items-center mb-2">
+              <Typography variant="h6">
+                Description
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setEditedDescription(goal?.description || '');
+                  setIsEditingDescription(true);
+                }}
+              >
+                <PencilIcon className="h-4 w-4" />
+              </IconButton>
+            </div>
             <Typography color="text.secondary">
               {goal?.description}
             </Typography>
           </Paper>
+
+          {/* Edit Description Dialog */}
+          <Dialog
+            open={isEditingDescription}
+            onClose={() => setIsEditingDescription(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>Edit Description</DialogTitle>
+            <DialogContent>
+              <TextField
+                autoFocus
+                multiline
+                rows={4}
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                fullWidth
+                variant="outlined"
+                margin="normal"
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setIsEditingDescription(false)}>Cancel</Button>
+              <Button onClick={handleUpdateDescription} variant="contained">Save</Button>
+            </DialogActions>
+          </Dialog>
 
           {/* Metrics Section */}
           <Paper className="p-6 bg-white shadow rounded-lg">
