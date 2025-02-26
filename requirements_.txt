@@ -349,6 +349,35 @@ Homepage is my goals.
     - I can set target metrics 
     - I can set process metrics
     - I can connect todos with multiple target metrics, process metrics or milestones
+- Each goal has its own dashboard or page
+    - Containing
+        - The name of the goal
+        - Why this goal is important to you
+        - The target metrics
+        - The process metrics
+        - The todos
+        - The milestones
+        - The deadline
+        - The current progress
+- Each goal can have subgoals
+    - That is be connected to other goals
+- The goal page has
+    - Metrics
+    - Create a card underneath metrics with 3 columns
+        - Left column is negative experiences
+        - Middle column is strategies
+        - Right column is positive experiences
+    - When I add an experience it goes on the top - with a timestamp
+    - Same with strategies 
+        - Strategy is a series of steps
+    - Example experience
+        - "Had a bad experience with the last of the beef mince, don't eat again"
+        - Include a timestamp
+    - Example Strategy
+        - Series of steps to accomplish something.
+        
+
+
 
 Updated Specification
 

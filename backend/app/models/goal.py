@@ -46,3 +46,5 @@ class Goal(Base):
     parent = relationship("Goal", remote_side=[id], back_populates="subgoals")
     subgoals = relationship("Goal", back_populates="parent", cascade="all, delete-orphan")
     metrics = relationship("Metric", back_populates="goal", cascade="all, delete-orphan")
+    experiences = relationship("Experience", back_populates="goal", cascade="all, delete-orphan")
+    strategies = relationship("Strategy", back_populates="goal", cascade="all, delete-orphan")

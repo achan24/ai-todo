@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .routers import tasks, goals, metrics
+from .routers import tasks, goals, metrics, experiences, strategies
 from .database import engine, Base
 import logging
 
@@ -38,6 +38,8 @@ def create_app():
     app.include_router(tasks.router, prefix="/api", tags=["tasks"])
     app.include_router(goals.router, prefix="/api", tags=["goals"])
     app.include_router(metrics.router, prefix="/api", tags=["metrics"])
+    app.include_router(experiences.router, prefix="/api", tags=["experiences"])
+    app.include_router(strategies.router, prefix="/api", tags=["strategies"])
     
     @app.get("/")
     async def root():

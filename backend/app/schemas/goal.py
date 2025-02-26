@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 from .task import Task
+from .experience import Experience
+from .strategy import Strategy
 
 class MetricType(str, Enum):
     target = "target"
@@ -54,9 +56,11 @@ class Goal(GoalBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
-    metrics: List[Metric] = []
-    subgoals: List['Goal'] = []
     tasks: List[Task] = []
+    metrics: List[Metric] = []
+    experiences: List[Experience] = []
+    strategies: List[Strategy] = []
+    subgoals: List['Goal'] = []
 
     class Config:
         from_attributes = True

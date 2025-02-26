@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/solid';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Container,
   Typography,
@@ -55,11 +56,30 @@ interface Metric {
   current_value: number;
 }
 
+interface Experience {
+  id: number;
+  content: string;
+  type: 'positive' | 'negative';
+  created_at: string;
+  goal_id: number;
+}
+
+interface Strategy {
+  id: number;
+  title: string;
+  steps: string[];
+  created_at: string;
+  goal_id: number;
+}
+
 interface Goal {
   id: number;
   title: string;
   description: string;
   metrics: Metric[];
+  experiences: Experience[];
+  strategies: Strategy[];
+  tasks: Task[];
 }
 
 interface TaskItemProps {
@@ -289,6 +309,16 @@ export default function GoalPage() {
   });
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
+  const [newExperience, setNewExperience] = useState({
+    content: '',
+    type: 'positive' as 'positive' | 'negative'
+  });
+  const [newStrategy, setNewStrategy] = useState({
+    title: '',
+    steps: ['']
+  });
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
 
   useEffect(() => {
     fetchGoalData();
@@ -305,7 +335,10 @@ export default function GoalPage() {
       const data = await response.json();
       setGoal({
         ...data,
-        metrics: data.metrics || [] // Ensure metrics is always an array
+        metrics: data.metrics || [], // Ensure metrics is always an array
+        experiences: data.experiences || [], // Ensure experiences is always an array
+        strategies: data.strategies || [], // Ensure strategies is always an array
+        tasks: data.tasks || [] // Ensure tasks is always an array
       });
 
       const tasksResponse = await fetch(`http://localhost:8005/api/goals/${params.id}/tasks`);
@@ -676,6 +709,103 @@ export default function GoalPage() {
     }
   };
 
+  const handleAddExperience = async () => {
+    try {
+      if (!newExperience.content) {
+        throw new Error('Content is required');
+      }
+
+      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/experiences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newExperience),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add experience');
+      }
+
+      const addedExperience = await response.json();
+      
+      setGoal(prevGoal => {
+        if (!prevGoal) return prevGoal;
+        return {
+          ...prevGoal,
+          experiences: [addedExperience, ...prevGoal.experiences]
+        };
+      });
+
+      setShowExperienceModal(false);
+      setNewExperience({
+        content: '',
+        type: 'positive'
+      });
+    } catch (error) {
+      console.error('Error adding experience:', error);
+    }
+  };
+
+  const handleAddStrategy = async () => {
+    try {
+      if (!newStrategy.title || newStrategy.steps.some(step => !step)) {
+        throw new Error('Title and all steps are required');
+      }
+
+      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/strategies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newStrategy),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add strategy');
+      }
+
+      const addedStrategy = await response.json();
+      
+      setGoal(prevGoal => {
+        if (!prevGoal) return prevGoal;
+        return {
+          ...prevGoal,
+          strategies: [addedStrategy, ...prevGoal.strategies]
+        };
+      });
+
+      setShowStrategyModal(false);
+      setNewStrategy({
+        title: '',
+        steps: ['']
+      });
+    } catch (error) {
+      console.error('Error adding strategy:', error);
+    }
+  };
+
+  const handleAddStrategyStep = () => {
+    setNewStrategy(prev => ({
+      ...prev,
+      steps: [...prev.steps, '']
+    }));
+  };
+
+  const handleUpdateStrategyStep = (index: number, value: string) => {
+    setNewStrategy(prev => ({
+      ...prev,
+      steps: prev.steps.map((step, i) => i === index ? value : step)
+    }));
+  };
+
+  const handleRemoveStrategyStep = (index: number) => {
+    setNewStrategy(prev => ({
+      ...prev,
+      steps: prev.steps.filter((_, i) => i !== index)
+    }));
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!goal) return <div>Goal not found</div>;
@@ -844,6 +974,98 @@ export default function GoalPage() {
             </Grid>
           </Paper>
 
+          {/* Experiences and Strategies Section */}
+          <div className="mt-8 bg-white rounded-lg shadow p-6">
+            <div className="grid grid-cols-3 gap-6">
+              {/* Negative Experiences */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-red-600">Negative Experiences</h3>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => {
+                      setNewExperience({ content: '', type: 'negative' });
+                      setShowExperienceModal(true);
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {goal?.experiences
+                    .filter(exp => exp.type === 'negative')
+                    .map(exp => (
+                      <div key={exp.id} className="p-3 bg-red-50 rounded-lg">
+                        <p className="text-gray-800">{exp.content}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(exp.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Strategies */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-blue-600">Strategies</h3>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => setShowStrategyModal(true)}
+                  >
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {goal?.strategies.map(strategy => (
+                    <div key={strategy.id} className="p-3 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-800">{strategy.title}</h4>
+                      <ol className="list-decimal list-inside mt-2 space-y-1">
+                        {strategy.steps.map((step, index) => (
+                          <li key={index} className="text-gray-700">{step}</li>
+                        ))}
+                      </ol>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {new Date(strategy.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Positive Experiences */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-green-600">Positive Experiences</h3>
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    onClick={() => {
+                      setNewExperience({ content: '', type: 'positive' });
+                      setShowExperienceModal(true);
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {goal?.experiences
+                    .filter(exp => exp.type === 'positive')
+                    .map(exp => (
+                      <div key={exp.id} className="p-3 bg-green-50 rounded-lg">
+                        <p className="text-gray-800">{exp.content}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(exp.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Quick Add Task */}
           <Paper className="p-6 bg-white shadow rounded-lg">
             <Typography variant="h6" gutterBottom>
@@ -970,6 +1192,102 @@ export default function GoalPage() {
             disabled={!newMetric.name || !newMetric.unit}
           >
             Add Metric
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Experience Modal */}
+      <Dialog
+        open={showExperienceModal}
+        onClose={() => setShowExperienceModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Add {newExperience.type === 'positive' ? 'Positive' : 'Negative'} Experience
+        </DialogTitle>
+        <DialogContent>
+          <div className="space-y-4 mt-4">
+            <TextField
+              label="Experience"
+              fullWidth
+              multiline
+              rows={4}
+              value={newExperience.content}
+              onChange={(e) => setNewExperience({ ...newExperience, content: e.target.value })}
+              placeholder="Describe your experience..."
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowExperienceModal(false)}>Cancel</Button>
+          <Button
+            onClick={handleAddExperience}
+            variant="contained"
+            color={newExperience.type === 'positive' ? 'success' : 'error'}
+          >
+            Add Experience
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Strategy Modal */}
+      <Dialog
+        open={showStrategyModal}
+        onClose={() => setShowStrategyModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add Strategy</DialogTitle>
+        <DialogContent>
+          <div className="space-y-4 mt-4">
+            <TextField
+              label="Strategy Title"
+              fullWidth
+              value={newStrategy.title}
+              onChange={(e) => setNewStrategy({ ...newStrategy, title: e.target.value })}
+              placeholder="Enter strategy title..."
+            />
+            <div className="space-y-3">
+              {newStrategy.steps.map((step, index) => (
+                <div key={index} className="flex gap-2">
+                  <TextField
+                    label={`Step ${index + 1}`}
+                    fullWidth
+                    value={step}
+                    onChange={(e) => handleUpdateStrategyStep(index, e.target.value)}
+                    placeholder="Enter step description..."
+                  />
+                  {newStrategy.steps.length > 1 && (
+                    <IconButton
+                      color="error"
+                      onClick={() => handleRemoveStrategyStep(index)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  )}
+                </div>
+              ))}
+              <Button
+                startIcon={<AddIcon />}
+                onClick={handleAddStrategyStep}
+                variant="outlined"
+                fullWidth
+              >
+                Add Step
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowStrategyModal(false)}>Cancel</Button>
+          <Button
+            onClick={handleAddStrategy}
+            variant="contained"
+            color="primary"
+            disabled={!newStrategy.title || newStrategy.steps.some(step => !step)}
+          >
+            Add Strategy
           </Button>
         </DialogActions>
       </Dialog>
