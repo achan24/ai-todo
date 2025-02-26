@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/solid';
-import EditTaskModal from './EditTaskModal';
+import EditTaskDialog from './EditTaskDialog';
 import ContributionDialog from './ContributionDialog';
 
 interface Task {
@@ -597,17 +597,17 @@ export default function TaskManager() {
             </ul>
           </div>
 
-          {/* Edit Task Modal */}
-          <EditTaskModal
+          {/* Edit Task Dialog */}
+          <EditTaskDialog
             task={editingTask}
-            isOpen={isEditModalOpen}
+            open={isEditModalOpen}
             onClose={() => {
               setIsEditModalOpen(false);
               setEditingTask(null);
             }}
-            onSave={(updates) => {
+            onSave={(updatedTask) => {
               if (editingTask) {
-                handleUpdateTask(editingTask.id, updates);
+                handleUpdateTask(editingTask.id, updatedTask);
               }
             }}
           />

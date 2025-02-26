@@ -22,6 +22,7 @@ import {
   IconButton,
   MenuItem,
 } from '@mui/material';
+import EditTaskDialog from '../../../components/EditTaskDialog';
 
 interface Task {
   id: number;
@@ -265,220 +266,6 @@ const TaskItem = ({
         ))
       )}
     </>
-  );
-};
-
-interface EditTaskDialogProps {
-  open: boolean;
-  task: Task | null;
-  onClose: () => void;
-  onSave: (task: Task) => void;
-  metrics: Metric[];
-}
-
-const EditTaskDialog = ({ open, task, onClose, onSave, metrics }: EditTaskDialogProps) => {
-  const [editedTask, setEditedTask] = useState<Task | null>(null);
-  const [newTag, setNewTag] = useState('');
-  const [selectedMetric, setSelectedMetric] = useState<Metric | null>(null);
-
-  useEffect(() => {
-    setEditedTask(task);
-    if (task?.metric_id) {
-      const metric = metrics.find(m => m.id === task.metric_id);
-      setSelectedMetric(metric || null);
-    } else {
-      setSelectedMetric(null);
-    }
-  }, [task, metrics]);
-
-  if (!editedTask) return null;
-
-  const handleSave = () => {
-    if (editedTask) {
-      onSave(editedTask);
-      onClose();
-    }
-  };
-
-  const handleAddTag = () => {
-    if (newTag && editedTask) {
-      setEditedTask({
-        ...editedTask,
-        tags: [...editedTask.tags, newTag]
-      });
-      setNewTag('');
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    if (editedTask) {
-      setEditedTask({
-        ...editedTask,
-        tags: editedTask.tags.filter(tag => tag !== tagToRemove)
-      });
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Edit Task</DialogTitle>
-      <DialogContent>
-        <Box sx={{ pt: 2 }}>
-          <TextField
-            fullWidth
-            label="Title"
-            value={editedTask.title}
-            onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Description"
-            multiline
-            rows={3}
-            value={editedTask.description || ''}
-            onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            select
-            fullWidth
-            label="Priority"
-            value={editedTask.priority || ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              setEditedTask({ 
-                ...editedTask, 
-                priority: value === '' ? undefined : value as 'high' | 'medium' | 'low'
-              });
-            }}
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="">No Priority</MenuItem>
-            <MenuItem value="high">High</MenuItem>
-            <MenuItem value="medium">Medium</MenuItem>
-            <MenuItem value="low">Low</MenuItem>
-          </TextField>
-          <TextField
-            select
-            fullWidth
-            label="Metric"
-            value={editedTask.metric_id || ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              const metricId = value === '' ? null : parseInt(value);
-              const metric = metrics.find(m => m.id === metricId);
-              setSelectedMetric(metric || null);
-              setEditedTask({
-                ...editedTask,
-                metric_id: metricId,
-                contribution_value: null // Reset contribution when metric changes
-              });
-            }}
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="">No Metric</MenuItem>
-            {metrics.map(metric => (
-              <MenuItem key={metric.id} value={metric.id}>
-                {metric.name} ({metric.unit})
-              </MenuItem>
-            ))}
-          </TextField>
-          {selectedMetric && (
-            <TextField
-              fullWidth
-              type="number"
-              label={`Contribution (${selectedMetric.unit})`}
-              value={editedTask.contribution_value || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setEditedTask({
-                  ...editedTask,
-                  contribution_value: value === '' ? null : parseFloat(value)
-                });
-              }}
-              sx={{ mb: 2 }}
-            />
-          )}
-          <TextField
-            fullWidth
-            type="number"
-            label="Estimated Time (minutes)"
-            value={editedTask.estimated_minutes || ''}
-            onChange={(e) => setEditedTask({ ...editedTask, estimated_minutes: parseInt(e.target.value) || null })}
-            sx={{ mb: 2 }}
-          />
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Tags
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-              {editedTask.tags.map((tag) => {
-                const tagColors = {
-                  'bug': { bg: '#FEE2E2', text: '#DC2626' },
-                  'feature': { bg: '#DBEAFE', text: '#2563EB' },
-                  'urgent': { bg: '#FEE2E2', text: '#DC2626' },
-                  'documentation': { bg: '#E0E7FF', text: '#4F46E5' },
-                  'enhancement': { bg: '#D1FAE5', text: '#059669' },
-                  'design': { bg: '#FCE7F3', text: '#DB2777' },
-                  'testing': { bg: '#FEF3C7', text: '#D97706' },
-                  'research': { bg: '#F3E8FF', text: '#7C3AED' }
-                };
-
-                const getHashColor = (str: string) => {
-                  const baseColors = [
-                    { bg: '#FEE2E2', text: '#DC2626' }, // red
-                    { bg: '#DBEAFE', text: '#2563EB' }, // blue
-                    { bg: '#D1FAE5', text: '#059669' }, // green
-                    { bg: '#FCE7F3', text: '#DB2777' }, // pink
-                    { bg: '#FEF3C7', text: '#D97706' }, // yellow
-                    { bg: '#F3E8FF', text: '#7C3AED' }, // purple
-                  ];
-                  const hash = str.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                  return baseColors[hash % baseColors.length];
-                };
-
-                const color = tagColors[tag.toLowerCase()] || getHashColor(tag);
-
-                return (
-                  <Chip
-                    key={tag}
-                    label={tag}
-                    onDelete={() => handleRemoveTag(tag)}
-                    size="small"
-                    sx={{
-                      backgroundColor: color.bg,
-                      color: color.text,
-                      '& .MuiChip-label': {
-                        fontSize: '0.75rem',
-                        fontWeight: 500,
-                      },
-                    }}
-                  />
-                );
-              })}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                size="small"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                placeholder="Add new tag"
-              />
-              <Button onClick={handleAddTag} disabled={!newTag}>
-                Add
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">
-          Save
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 };
 
@@ -792,7 +579,7 @@ export default function GoalPage() {
           type: newMetric.type,
           unit: newMetric.unit,
           target_value: newMetric.type === 'target' ? (newMetric.target_value || 0) : null,
-          current_value: newMetric.current_value || 0,
+          current_value: newMetric.current_value || 0
         }),
       });
 
@@ -822,9 +609,8 @@ export default function GoalPage() {
         target_value: 0,
         current_value: 0
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding metric:', error);
-      alert(error.message || 'Failed to add metric');
     }
   };
 
@@ -1160,8 +946,8 @@ export default function GoalPage() {
                 label="Target Value"
                 type="number"
                 fullWidth
-                value={newMetric.target_value}
-                onChange={(e) => setNewMetric({ ...newMetric, target_value: parseFloat(e.target.value) })}
+                value={newMetric.target_value || 0}
+                onChange={(e) => setNewMetric({ ...newMetric, target_value: e.target.value ? parseFloat(e.target.value) : 0 })}
                 inputProps={{ min: 0, step: 'any' }}
               />
             )}
@@ -1169,8 +955,8 @@ export default function GoalPage() {
               label="Current Value"
               type="number"
               fullWidth
-              value={newMetric.current_value}
-              onChange={(e) => setNewMetric({ ...newMetric, current_value: parseFloat(e.target.value) })}
+              value={newMetric.current_value || 0}
+              onChange={(e) => setNewMetric({ ...newMetric, current_value: e.target.value ? parseFloat(e.target.value) : 0 })}
               inputProps={{ min: 0, step: 'any' }}
             />
           </div>

@@ -376,6 +376,7 @@ export default function GoalManager() {
       setShowDeleteConfirmationInput(false);
       setGoalToDelete(null);
       fetchGoals();
+      router.push('/'); // Redirect to goals list after successful deletion
     } catch (error) {
       console.error('Error deleting goal:', error);
     }

@@ -18,10 +18,13 @@ def create_metric(metric: MetricCreate, db: Session = Depends(get_db)):
     """Create a new metric"""
     try:
         db_metric = Metric(
-            title=metric.title,
+            name=metric.name,
             description=metric.description,
+            type=metric.type,
             unit=metric.unit,
             target_value=metric.target_value,
+            current_value=metric.current_value,
+            goal_id=metric.goal_id,
             user_id=1
         )
         db.add(db_metric)
