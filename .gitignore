@@ -1,0 +1,15 @@
+# Python bytecode files
+__pycache__/
+*.pyc
+
+# macOS system files
+.DS_Store
+
+# Next.js build files
+.next/
+
+# Node.js dependencies
+node_modules/
+
+# Backend Node.js lock file (if not using Node.js backend)
+backend/package-lock.json
