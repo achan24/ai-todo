@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Any, Dict
+import json
 
 from ..database import get_db
 from ..models.goal import Goal, Metric
@@ -12,6 +13,33 @@ router = APIRouter(
     prefix="/goals",
     tags=["goals"]
 )
+
+def prepare_metric_for_response(metric: Metric) -> Dict[str, Any]:
+    """Convert metric data for frontend response"""
+    data = {
+        "id": metric.id,
+        "name": metric.name,
+        "description": metric.description,
+        "type": metric.type,
+        "unit": metric.unit,
+        "target_value": metric.target_value,
+        "current_value": metric.current_value,
+        "goal_id": metric.goal_id,
+        "created_at": metric.created_at,
+        "updated_at": metric.updated_at,
+        "contributions_list": json.dumps(metric.contributions_list) if isinstance(metric.contributions_list, list) else metric.contributions_list
+    }
+    return data
+
+def prepare_metrics_for_response(metrics):
+    """Helper function to prepare metrics for response"""
+    for metric in metrics:
+        # Ensure contributions_list is a string
+        if isinstance(metric.contributions_list, list):
+            metric.contributions_list = json.dumps(metric.contributions_list)
+        elif metric.contributions_list is None:
+            metric.contributions_list = '[]'
+    return metrics
 
 @router.get("/", response_model=List[GoalSchema])
 async def get_goals(
@@ -28,8 +56,13 @@ async def get_goals(
         .all()
     )
     
+    # Prepare metrics for response
+    for goal in goals:
+        goal.metrics = prepare_metrics_for_response(goal.metrics)
+        for subgoal in goal.subgoals:
+            subgoal.metrics = prepare_metrics_for_response(subgoal.metrics)
+    
     # Return only top-level goals (those without parents)
-    # SQLAlchemy will automatically handle the subgoals relationship
     return [goal for goal in goals if goal.parent_id is None]
 
 @router.post("/", response_model=GoalSchema)
@@ -64,6 +97,12 @@ async def read_goal(
     goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if goal is None:
         raise HTTPException(status_code=404, detail="Goal not found")
+        
+    # Prepare metrics for response
+    goal.metrics = prepare_metrics_for_response(goal.metrics)
+    for subgoal in goal.subgoals:
+        subgoal.metrics = prepare_metrics_for_response(subgoal.metrics)
+        
     return goal
 
 @router.put("/{goal_id}", response_model=GoalSchema)
@@ -162,26 +201,52 @@ async def create_goal_task(
     return db_task
 
 @router.post("/{goal_id}/metrics", response_model=MetricSchema)
-async def create_goal_metric(
+async def create_metric(
     goal_id: int,
     metric: MetricCreate,
     db: Session = Depends(get_db)
 ):
     """Create a new metric for a goal"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
-    if not goal:
+    db_goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    if not db_goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-    
-    db_metric = Metric(
-        name=metric.name,
-        description=metric.description,
-        type=metric.type,
-        unit=metric.unit,
-        target_value=metric.target_value,
-        current_value=metric.current_value,
-        goal_id=goal_id
-    )
+
+    # Create the metric
+    db_metric = Metric(**metric.dict())
+    db_metric.goal_id = goal_id
     db.add(db_metric)
     db.commit()
     db.refresh(db_metric)
+
+    # Find all completed tasks that contribute to this metric
+    completed_tasks = db.query(Task).filter(
+        Task.goal_id == goal_id,
+        Task.metric_id == None,  # Tasks not yet assigned to any metric
+        Task.completed == True,
+        Task.completion_time.isnot(None),
+        Task.contribution_value.isnot(None)
+    ).all()
+
+    # Add contributions from completed tasks
+    contributions = []
+    for task in completed_tasks:
+        if task.contribution_value:
+            # Update task to point to this metric
+            task.metric_id = db_metric.id
+            db.add(task)
+            
+            # Add contribution
+            contributions.append({
+                "value": float(task.contribution_value),
+                "task_id": task.id,
+                "timestamp": task.completion_time.isoformat()
+            })
+
+    if contributions:
+        db_metric.contributions_list = json.dumps(contributions)
+        db_metric.current_value = sum(float(c["value"]) for c in contributions)
+        db.add(db_metric)
+        db.commit()
+        db.refresh(db_metric)
+
     return db_metric

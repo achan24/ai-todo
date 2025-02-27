@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
+import json
 
 from ..models import Task, Metric
 from ..schemas.task import TaskCreate, TaskUpdate, TaskWithAIRecommendation
@@ -75,38 +76,53 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
         ).order_by(Task.completion_order.desc()).first()
         db_task.completion_order = (last_completed.completion_order + 1) if last_completed else 1
         
-        # If there's a metric contribution, add it to the metric's contributions list
+        # If there's a metric contribution, update the metric
         if db_task.metric_id and db_task.contribution_value:
             metric = db.query(Metric).filter(Metric.id == db_task.metric_id).first()
             if metric:
                 # Add contribution to list
-                contribution = {
-                    'value': db_task.contribution_value,
-                    'task_id': db_task.id,
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-                if metric.contributions_list is None:
-                    metric.contributions_list = []
-                metric.contributions_list.append(contribution)
+                try:
+                    contributions = json.loads(metric.contributions_list or '[]')
+                except json.JSONDecodeError:
+                    contributions = []
+                    
+                contributions.append({
+                    "value": float(db_task.contribution_value),  # Ensure it's a float
+                    "task_id": task_id,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+                metric.contributions_list = json.dumps(contributions)
                 
-                # Update current value
-                metric.current_value = sum(c['value'] for c in metric.contributions_list)
+                # Sum up all contributions to get current value
+                metric.current_value = sum(float(c["value"]) for c in contributions)  # Ensure we're summing floats
+                
                 db.add(metric)
+                db.commit()
+                db.refresh(metric)
     
     # If task is being uncompleted, remove its contribution from the metric
     elif update_data.get('completed') is False and db_task.completion_time:
         db_task.completion_time = None
         db_task.completion_order = None
         
-        # Remove contribution from metric if it exists
         if db_task.metric_id and db_task.contribution_value:
             metric = db.query(Metric).filter(Metric.id == db_task.metric_id).first()
-            if metric and metric.contributions_list:
-                # Remove all contributions from this task
-                metric.contributions_list = [c for c in metric.contributions_list if c['task_id'] != db_task.id]
-                # Update current value
-                metric.current_value = sum(c['value'] for c in metric.contributions_list)
+            if metric:
+                try:
+                    contributions = json.loads(metric.contributions_list or '[]')
+                except json.JSONDecodeError:
+                    contributions = []
+                    
+                # Remove this task's contribution
+                contributions = [c for c in contributions if c.get("task_id") != task_id]
+                metric.contributions_list = json.dumps(contributions)
+                
+                # Recalculate current value
+                metric.current_value = sum(float(c["value"]) for c in contributions)
+                
                 db.add(metric)
+                db.commit()
+                db.refresh(metric)
     
     db.add(db_task)
     db.commit()

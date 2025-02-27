@@ -4,6 +4,7 @@ from typing import List, Optional
 import logging
 from fastapi.responses import JSONResponse
 from datetime import datetime
+import json
 
 from ..database import get_db
 from ..services import task_service
@@ -120,18 +121,7 @@ async def complete_task(task_id: int, completion: TaskComplete, db: Session = De
             contribution_value=completion.contribution_value
         )
         updated_task = await task_service.update_task(db, task_id, task_update, user_id=1)
-        
-        # If there's a metric contribution, update the metric's current value
-        if completion.metric_id and completion.contribution_value:
-            metric = db.query(Metric).filter(Metric.id == completion.metric_id).first()
-            if metric:
-                metric.current_value = (metric.current_value or 0) + completion.contribution_value
-                db.commit()
-        
         return updated_task
     except Exception as e:
-        logger.error("Error completing task %d: %s", task_id, str(e), exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={"detail": f"Error completing task: {str(e)}"}
-        )
+        logger.error(f"Error completing task: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

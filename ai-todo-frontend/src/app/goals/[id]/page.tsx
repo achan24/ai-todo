@@ -46,6 +46,12 @@ interface Task {
   completion_order: number | null;
 }
 
+interface Contribution {
+  value: number;
+  task_id: number;
+  timestamp: string;
+}
+
 interface Metric {
   id?: number;
   name: string;
@@ -54,6 +60,7 @@ interface Metric {
   unit: string;
   target_value: number;
   current_value: number;
+  contributions_list: string;  // Raw JSON string from backend
 }
 
 interface Experience {
@@ -305,7 +312,8 @@ export default function GoalPage() {
     type: 'target',
     unit: '',
     target_value: 0,
-    current_value: 0
+    current_value: 0,
+    contributions_list: ''
   });
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
@@ -453,20 +461,49 @@ export default function GoalPage() {
 
   const toggleTaskCompletion = async (taskId: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          completed: !currentStatus,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update task');
+      // Find the task to get its metric_id and contribution_value
+      const task = tasks.find(t => t.id === taskId) || tasks.flatMap(t => t.subtasks).find(t => t?.id === taskId);
+      if (!task) {
+        throw new Error('Task not found');
       }
 
+      // If completing and has metric, use complete endpoint
+      if (!currentStatus && task.metric_id) {
+        const response = await fetch(`http://localhost:8005/api/tasks/${taskId}/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            metric_id: task.metric_id,
+            contribution_value: task.contribution_value
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to complete task');
+        }
+      } else {
+        // Otherwise just toggle completion
+        const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            completed: !currentStatus,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update task');
+        }
+      }
+
+      // Refresh goal data to get updated metrics
+      await fetchGoalData();
+
+      // Update task completion status in state
       setTasks(prevTasks => {
         const updateTaskCompletion = (tasks: Task[]): Task[] => {
           return tasks.map(task => {
@@ -612,7 +649,8 @@ export default function GoalPage() {
           type: newMetric.type,
           unit: newMetric.unit,
           target_value: newMetric.type === 'target' ? (newMetric.target_value || 0) : null,
-          current_value: newMetric.current_value || 0
+          current_value: newMetric.current_value || 0,
+          contributions_list: newMetric.contributions_list || ''
         }),
       });
 
@@ -640,7 +678,8 @@ export default function GoalPage() {
         type: 'target',
         unit: '',
         target_value: 0,
-        current_value: 0
+        current_value: 0,
+        contributions_list: ''
       });
     } catch (error) {
       console.error('Error adding metric:', error);
@@ -921,14 +960,24 @@ export default function GoalPage() {
                           Progress
                         </Typography>
                         <Typography variant="body2">
-                          {metric.current_value} / {metric.target_value || 0} {metric.unit}
+                          {(() => {
+                            const contributions = JSON.parse(metric.contributions_list || '[]');
+                            console.log('Metric:', metric.name);
+                            console.log('Contributions:', contributions);
+                            const total = contributions.reduce((sum: number, c: any) => sum + (c.value || 0), 0);
+                            return `${total} / ${metric.target_value || 0} ${metric.unit}`;
+                          })()}
                         </Typography>
                       </div>
                       <div className="w-full h-2 bg-gray-200 rounded-full mt-1">
                         <div
                           className="h-full bg-blue-500 rounded-full"
                           style={{
-                            width: `${Math.min(((metric.current_value || 0) / (metric.target_value || 1)) * 100, 100)}%`
+                            width: (() => {
+                              const contributions = JSON.parse(metric.contributions_list || '[]');
+                              const total = contributions.reduce((sum: number, c: any) => sum + (c.value || 0), 0);
+                              return `${Math.min((total / (metric.target_value || 1)) * 100, 100)}%`;
+                            })()
                           }}
                         />
                       </div>

@@ -115,3 +115,9 @@ ALWAYS CHECK EXISTING MODELS BEFORE CREATING NEW ONES:
 - Always handle both upgrade() and downgrade() paths in migrations
 - Test migrations on a copy of the database first
 - When copying data between tables, explicitly list all columns to avoid issues with schema changes
+
+12. SCHEMA CHANGES:
+- NEVER change a schema unless a property literally doesn't exist
+- Instead of changing schemas, use helper functions/properties to adapt the data
+- Migrations are WAY more complicated and risky than just adapting the data in code
+- If data format needs to change, handle it in the service layer, not by modifying the schema
