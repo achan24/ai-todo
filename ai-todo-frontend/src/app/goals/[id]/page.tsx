@@ -467,37 +467,21 @@ export default function GoalPage() {
         throw new Error('Task not found');
       }
 
-      // If completing and has metric, use complete endpoint
-      if (!currentStatus && task.metric_id) {
-        const response = await fetch(`http://localhost:8005/api/tasks/${taskId}/complete`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            metric_id: task.metric_id,
-            contribution_value: task.contribution_value
-          }),
-        });
+      // Use single endpoint for all task completions
+      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          completed: !currentStatus,
+          metric_id: task.metric_id,
+          contribution_value: task.contribution_value
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to complete task');
-        }
-      } else {
-        // Otherwise just toggle completion
-        const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            completed: !currentStatus,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update task');
-        }
+      if (!response.ok) {
+        throw new Error('Failed to update task');
       }
 
       // Refresh goal data to get updated metrics

@@ -8,7 +8,7 @@ import json
 
 from ..database import get_db
 from ..services import task_service
-from ..schemas.task import Task, TaskCreate, TaskUpdate, TaskWithAIRecommendation, TaskComplete
+from ..schemas.task import Task, TaskCreate, TaskUpdate, TaskWithAIRecommendation
 from ..models.goal import Metric
 
 logger = logging.getLogger(__name__)
@@ -108,20 +108,3 @@ async def get_next_task_recommendation(db: Session = Depends(get_db)):
             status_code=500,
             content={"detail": f"Error getting task recommendation: {str(e)}"}
         )
-
-@router.post("/{task_id}/complete", response_model=Task)
-async def complete_task(task_id: int, completion: TaskComplete, db: Session = Depends(get_db)):
-    """Complete a task and record metric contribution if applicable"""
-    try:
-        logger.info("Completing task %d with contribution %s", task_id, completion.contribution_value)
-        task_update = TaskUpdate(
-            completed=True,
-            completion_time=datetime.now(),
-            metric_id=completion.metric_id,
-            contribution_value=completion.contribution_value
-        )
-        updated_task = await task_service.update_task(db, task_id, task_update, user_id=1)
-        return updated_task
-    except Exception as e:
-        logger.error(f"Error completing task: {e}")
-        raise HTTPException(status_code=500, detail=str(e))

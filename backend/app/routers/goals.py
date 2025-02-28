@@ -16,6 +16,12 @@ router = APIRouter(
 
 def prepare_metric_for_response(metric: Metric) -> Dict[str, Any]:
     """Convert metric data for frontend response"""
+    # Parse contributions list
+    contributions = json.loads(metric.contributions_list) if isinstance(metric.contributions_list, str) else (metric.contributions_list or [])
+    
+    # Calculate current value from all contributions
+    current_value = sum(float(c["value"]) for c in contributions)
+    
     data = {
         "id": metric.id,
         "name": metric.name,
@@ -23,11 +29,11 @@ def prepare_metric_for_response(metric: Metric) -> Dict[str, Any]:
         "type": metric.type,
         "unit": metric.unit,
         "target_value": metric.target_value,
-        "current_value": metric.current_value,
+        "current_value": current_value,  # Use calculated value instead of stored value
         "goal_id": metric.goal_id,
         "created_at": metric.created_at,
         "updated_at": metric.updated_at,
-        "contributions_list": json.dumps(metric.contributions_list) if isinstance(metric.contributions_list, list) else metric.contributions_list
+        "contributions_list": json.dumps(contributions)
     }
     return data
 

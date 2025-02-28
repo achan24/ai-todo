@@ -77,8 +77,11 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
         db_task.completion_order = (last_completed.completion_order + 1) if last_completed else 1
         
         # If there's a metric contribution, update the metric
-        if db_task.metric_id and db_task.contribution_value:
-            metric = db.query(Metric).filter(Metric.id == db_task.metric_id).first()
+        metric_id = update_data.get('metric_id') or db_task.metric_id
+        contribution_value = update_data.get('contribution_value') or db_task.contribution_value
+        
+        if metric_id and contribution_value:
+            metric = db.query(Metric).filter(Metric.id == metric_id).first()
             if metric:
                 # Add contribution to list
                 try:
@@ -87,14 +90,11 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
                     contributions = []
                     
                 contributions.append({
-                    "value": float(db_task.contribution_value),  # Ensure it's a float
+                    "value": float(contribution_value),  # Ensure it's a float
                     "task_id": task_id,
                     "timestamp": datetime.utcnow().isoformat()
                 })
                 metric.contributions_list = json.dumps(contributions)
-                
-                # Sum up all contributions to get current value
-                metric.current_value = sum(float(c["value"]) for c in contributions)  # Ensure we're summing floats
                 
                 db.add(metric)
                 db.commit()
@@ -116,9 +116,6 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
                 # Remove this task's contribution
                 contributions = [c for c in contributions if c.get("task_id") != task_id]
                 metric.contributions_list = json.dumps(contributions)
-                
-                # Recalculate current value
-                metric.current_value = sum(float(c["value"]) for c in contributions)
                 
                 db.add(metric)
                 db.commit()

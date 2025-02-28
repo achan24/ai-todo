@@ -31,10 +31,6 @@ class TaskUpdate(BaseModel):
     metric_id: Optional[int] = None
     contribution_value: Optional[float] = None
 
-class TaskComplete(BaseModel):
-    contribution_value: Optional[float] = None
-    metric_id: Optional[int] = None
-
 class Task(TaskBase):
     id: int
     completed: bool = False

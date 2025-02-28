@@ -121,3 +121,47 @@ ALWAYS CHECK EXISTING MODELS BEFORE CREATING NEW ONES:
 - Instead of changing schemas, use helper functions/properties to adapt the data
 - Migrations are WAY more complicated and risky than just adapting the data in code
 - If data format needs to change, handle it in the service layer, not by modifying the schema
+
+13. API Endpoint Design
+---------------------
+
+1. DO NOT create separate endpoints for variations of the same action
+   BAD: 
+   - /tasks/{id}/update
+   - /tasks/{id}/complete (for tasks with metrics)
+   - /tasks/{id}/complete-simple (for tasks without metrics)
+   
+   GOOD:
+   - Single /tasks/{id} PUT endpoint that handles all update cases
+   - Let the payload determine what gets updated (completion status, metric data, etc.)
+
+2. Keep the API surface minimal and consistent
+   - One resource = One endpoint
+   - Use HTTP methods (GET, POST, PUT, DELETE) to differentiate actions
+   - Let request/response schemas handle variations in data
+
+3. Example:
+   Instead of special /complete endpoint, just use PUT with all necessary data:
+   PUT /tasks/{id}
+   {
+     "completed": true,
+     "metric_id": 123,        // Optional
+     "contribution_value": 5   // Optional
+   }
+
+14. Database and Scripts
+---------------------
+
+1. Database file location:
+   - The app uses SQLite with file: ./sql_app.db
+   - When writing scripts, ALWAYS use the same database file as the main app:
+     ```python
+     DATABASE_URL = "sqlite:///./sql_app.db"  # NOT some other random path
+     ```
+   - If your script can't find tables, you're probably looking at the wrong database file
+
+2. Writing Database Scripts:
+   - Import all related models (including ones used in relationships)
+   - Create tables if they don't exist: Base.metadata.create_all(bind=engine)
+   - Use the same database URL as the main app
+   - Test the script with a small subset of data first
