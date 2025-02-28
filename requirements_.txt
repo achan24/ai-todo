@@ -411,6 +411,12 @@ Homepage is my goals.
             - All tasks completed
     - The badges are stackable, meaning a goal can display multiple at once. Goals are color-coded based on activity: brighter for active, faded for stagnant, glowing for achievements.
 
+- AI button for tasks -Breaking down a task into subtasks AI features
+    - Connect to Samabnova Cloud API
+    - Send a prompt to breakdown task into subtasks
+    - Show the user the subtasks and allow them to select and or edit them before accepting list
+
+
          
 Configuration Management
 -----------------------

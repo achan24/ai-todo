@@ -346,7 +346,7 @@ export default function GoalManager() {
 
     // Goal completed
     if (goal.tasks?.every(t => t.completed)) {
-      badges.push('✅');
+      badges.push('🎖');
     }
 
     return badges;
