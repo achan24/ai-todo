@@ -9,7 +9,6 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import {
   Container,
   Typography,
-  Box,
   Paper,
   Button,
   TextField,
@@ -28,8 +27,13 @@ import {
   InputLabel,
   Tooltip,
   FormControlLabel,
-  Switch
+  Switch,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Box,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditTaskDialog from '../../../components/EditTaskDialog';
 import config from '@/config/config';
 
@@ -108,6 +112,7 @@ interface TaskItemProps {
   onToggleComplete: (taskId: number, currentStatus: boolean) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: number, title: string) => void;
+  showDates: boolean;
 }
 
 const TaskItem = ({ 
@@ -119,7 +124,8 @@ const TaskItem = ({
   onDrop,
   onToggleComplete,
   onEdit,
-  onDelete
+  onDelete,
+  showDates
 }: TaskItemProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
@@ -187,6 +193,11 @@ const TaskItem = ({
               {task.description && (
                 <Typography variant="body2" color="text.secondary">
                   {task.description}
+                </Typography>
+              )}
+              {showDates && (
+                <Typography variant="body2" color="text.secondary">
+                  {new Date(task.created_at).toLocaleString()}
                 </Typography>
               )}
             </div>
@@ -298,6 +309,7 @@ const TaskItem = ({
             onToggleComplete={onToggleComplete}
             onEdit={onEdit}
             onDelete={onDelete}
+            showDates={showDates}
           />
         ))
       )}
@@ -340,6 +352,7 @@ export default function GoalPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showDates, setShowDates] = useState(false);
 
   const filteredTasks = useMemo(() => {
     return tasks
@@ -1342,44 +1355,62 @@ export default function GoalPage() {
 
           {/* Tasks List */}
           <Paper className="bg-white shadow rounded-lg">
-            <Box className="p-4 border-b flex items-center gap-4">
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Sort by Date</InputLabel>
-                <Select
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                  label="Sort by Date"
-                >
-                  <MenuItem value="desc">Newest First</MenuItem>
-                  <MenuItem value="asc">Oldest First</MenuItem>
-                </Select>
-              </FormControl>
+            <Accordion elevation={0}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography>Filter & Sort</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box className="flex items-center gap-4">
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <InputLabel>Sort by Date</InputLabel>
+                    <Select
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                      label="Sort by Date"
+                    >
+                      <MenuItem value="desc">Newest First</MenuItem>
+                      <MenuItem value="asc">Oldest First</MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
-                  label="Priority"
-                >
-                  <MenuItem value="all">All Priorities</MenuItem>
-                  <MenuItem value="high">High</MenuItem>
-                  <MenuItem value="medium">Medium</MenuItem>
-                  <MenuItem value="low">Low</MenuItem>
-                </Select>
-              </FormControl>
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <InputLabel>Priority</InputLabel>
+                    <Select
+                      value={priorityFilter}
+                      onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
+                      label="Priority"
+                    >
+                      <MenuItem value="all">All Priorities</MenuItem>
+                      <MenuItem value="high">High</MenuItem>
+                      <MenuItem value="medium">Medium</MenuItem>
+                      <MenuItem value="low">Low</MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={showCompleted}
-                    onChange={(e) => setShowCompleted(e.target.checked)}
-                    size="small"
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={showCompleted}
+                        onChange={(e) => setShowCompleted(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label="Show Completed"
                   />
-                }
-                label="Show Completed"
-              />
-            </Box>
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={showDates}
+                        onChange={(e) => setShowDates(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label="Show Dates"
+                  />
+                </Box>
+              </AccordionDetails>
+            </Accordion>
 
             <List>
               {filteredTasks.map(task => (
@@ -1393,6 +1424,7 @@ export default function GoalPage() {
                   onToggleComplete={toggleTaskCompletion}
                   onEdit={setEditingTask}
                   onDelete={handleDeleteTask}
+                  showDates={showDates}
                 />
               ))}
             </List>

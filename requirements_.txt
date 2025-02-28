@@ -394,6 +394,23 @@ Homepage is my goals.
     - Filter by priority
     - Show completed tasks
 
+
+- Goal homepage - emoji-based progress badges
+    - emoji-based progress badges stacked above each goal. The badges indicate activity status and engagement level:
+        🔥 Hot Streak (Red/Orange): A fire icon appears if a goal has had 3+ updates in a week, showing strong engagement.
+            - Hot streak is 3 consecutive daily tasks completed   
+        ⏳ Procrastinator (Gray/Blue): A sand timer or snail icon appears if no activity has been logged for a certain period, warning of stagnation.
+            - 2 days with no tasks being achieved
+        🎯 Milestone Hit (Gold): A target or medal appears when a user completes a major step toward their goal, celebrating progress.
+            - I have not implemented milestones yet - so wait for this one
+        🧊 Frozen Goal (Blue/White): An ice cube or snowflake appears for long-term inactivity, indicating a stalled goal.
+            - No tasks done for 7 days
+        🚀 Momentum	Making steady progress without breaks	Rocket	
+            - Completing a parent task 
+        🎖 Goal Completed	Fully achieved the goal	Trophy / Checkmark 
+            - All tasks completed
+    - The badges are stackable, meaning a goal can display multiple at once. Goals are color-coded based on activity: brighter for active, faded for stagnant, glowing for achievements.
+
          
 Configuration Management
 -----------------------

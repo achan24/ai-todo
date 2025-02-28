@@ -15,6 +15,14 @@ interface Goal {
   progress?: number;
   parent_id?: number | null;
   subgoals?: Goal[];
+  tasks?: Task[];
+}
+
+interface Task {
+  id: number;
+  completed: boolean;
+  completed_at?: string;
+  parent_id?: number;
 }
 
 interface GoalItemProps {
@@ -57,12 +65,54 @@ const GoalItem = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const hasSubgoals = goal.subgoals && goal.subgoals.length > 0;
 
+  const calculateBadges = (goal: Goal) => {
+    const badges = [];
+    const now = new Date();
+    
+    // Hot streak - 3 consecutive daily tasks completed
+    const recentCompletedTasks = goal.tasks?.filter(t => 
+      t.completed && 
+      new Date(t.completed_at!).getTime() > now.getTime() - (3 * 24 * 60 * 60 * 1000)
+    );
+    if (recentCompletedTasks?.length >= 3) {
+      badges.push('🔥');
+    }
+
+    // Procrastinator - 2 days no activity
+    const lastCompletedTask = goal.tasks?.find(t => t.completed);
+    if (lastCompletedTask && 
+        new Date(lastCompletedTask.completed_at!).getTime() < now.getTime() - (2 * 24 * 60 * 60 * 1000)) {
+      badges.push('⏳');
+    }
+
+    // Frozen - 7 days no activity
+    if (lastCompletedTask && 
+        new Date(lastCompletedTask.completed_at!).getTime() < now.getTime() - (7 * 24 * 60 * 60 * 1000)) {
+      badges.push('🧊');
+    }
+
+    // Momentum - completed parent task
+    if (goal.tasks?.some(t => !t.parent_id && t.completed)) {
+      badges.push('🚀');
+    }
+
+    // All tasks completed
+    if (goal.tasks?.length > 0 && goal.tasks?.every(t => t.completed)) {
+      badges.push('🎖');
+    }
+
+    return badges;
+  };
+
+  const badges = calculateBadges(goal);
+  const bgColor = badges.length > 0 ? 'bg-blue-50' : '';
+
   return (
     <div>
       <div 
         className={`goal-item relative hover:bg-gray-50 cursor-pointer ${
           level === 0 
-            ? 'px-4 py-4 sm:px-6 mb-4 rounded-lg border border-gray-200 shadow-sm' 
+            ? `px-4 py-4 sm:px-6 mb-4 rounded-lg border border-gray-200 shadow-sm ${bgColor}` 
             : 'px-3 py-2 sm:px-4 mb-2 rounded border border-gray-100'
         }`}
         style={level > 0 ? { marginLeft: `${level * 2.5}rem` } : undefined}
@@ -121,6 +171,11 @@ const GoalItem = ({
                 <Typography>
                   {goal.title}
                 </Typography>
+                <div className="flex gap-1">
+                  {badges.map((badge, index) => (
+                    <span key={index} className="text-lg">{badge}</span>
+                  ))}
+                </div>
                 {goal.deadline && (
                   <div className="flex items-center text-gray-500 text-sm">
                     <ClockIcon className="h-4 w-4 mr-1" />

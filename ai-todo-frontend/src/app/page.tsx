@@ -23,6 +23,13 @@ interface Goal {
   parent_id?: number;
 }
 
+interface Task {
+  id: number;
+  parent_id?: number;
+  completed: boolean;
+  completed_at?: string;
+}
+
 const GoalMetrics = ({ metrics, goalId }: { metrics: Metric[], goalId: number }) => {
   const targetMetrics = metrics.filter(m => m.type === 'target');
   const processMetrics = metrics.filter(m => m.type === 'process');
@@ -73,6 +80,45 @@ const GoalMetrics = ({ metrics, goalId }: { metrics: Metric[], goalId: number })
       </div>
     </div>
   );
+
+  const calculateBadges = (goal: Goal) => {
+    const badges = [];
+    const now = new Date();
+    
+    // Hot streak - 3 consecutive daily tasks completed
+    const recentCompletedTasks = goal.tasks?.filter(t => 
+      t.completed && 
+      new Date(t.completed_at).getTime() > now.getTime() - (3 * 24 * 60 * 60 * 1000)
+    );
+    if (recentCompletedTasks?.length >= 3) {
+      badges.push('🔥');
+    }
+
+    // Procrastinator - 2 days no activity
+    const lastCompletedTask = goal.tasks?.find(t => t.completed);
+    if (lastCompletedTask && 
+        new Date(lastCompletedTask.completed_at).getTime() < now.getTime() - (2 * 24 * 60 * 60 * 1000)) {
+      badges.push('⏳');
+    }
+
+    // Frozen - 7 days no activity
+    if (lastCompletedTask && 
+        new Date(lastCompletedTask.completed_at).getTime() < now.getTime() - (7 * 24 * 60 * 60 * 1000)) {
+      badges.push('🧊');
+    }
+
+    // Momentum - completed parent task
+    if (goal.tasks?.some(t => !t.parent_id && t.completed)) {
+      badges.push('🚀');
+    }
+
+    // All tasks completed
+    if (goal.tasks?.length > 0 && goal.tasks?.every(t => t.completed)) {
+      badges.push('🎖');
+    }
+
+    return badges;
+  };
 
   return (
     <div className="space-y-4">
