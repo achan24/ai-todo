@@ -65,16 +65,18 @@ class Metric(MetricBase):
 
 class GoalBase(BaseModel):
     title: str
-    description: Optional[str] = None
-    parent_id: Optional[int] = None
+    description: str | None = None
+    parent_id: int | None = None
+    current_strategy_id: int | None = None
 
 class GoalCreate(GoalBase):
-    parent_id: Optional[int] = None
+    pass
 
 class GoalUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     parent_id: Optional[int] = None
+    current_strategy_id: Optional[int] = None
 
 class Goal(GoalBase):
     id: int
@@ -86,6 +88,7 @@ class Goal(GoalBase):
     experiences: List[Experience] = []
     strategies: List[Strategy] = []
     subgoals: List['Goal'] = []
+    current_strategy_id: int | None = None
 
     class Config:
         from_attributes = True

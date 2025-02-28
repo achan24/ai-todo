@@ -40,6 +40,7 @@ class Goal(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     user_id = Column(Integer, default=1)  
     parent_id = Column(Integer, ForeignKey('goals.id', ondelete='CASCADE'), nullable=True)
+    current_strategy_id = Column(Integer, nullable=True)
 
     # Relationships
     tasks = relationship("Task", back_populates="goal", cascade="all, delete-orphan")

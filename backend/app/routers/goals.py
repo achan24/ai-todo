@@ -141,9 +141,16 @@ async def update_goal(
         if is_descendant(goal_update.parent_id, goal_id):
             raise HTTPException(status_code=400, detail="Cannot move goal under its own descendant")
 
-    for key, value in goal_update.dict(exclude_unset=True).items():
-        setattr(db_goal, key, value)
-    
+    # Update goal fields
+    if goal_update.title is not None:
+        db_goal.title = goal_update.title
+    if goal_update.description is not None:
+        db_goal.description = goal_update.description
+    if goal_update.parent_id is not None:
+        db_goal.parent_id = goal_update.parent_id
+    if goal_update.current_strategy_id is not None:
+        db_goal.current_strategy_id = goal_update.current_strategy_id
+
     db.commit()
     db.refresh(db_goal)
     return db_goal

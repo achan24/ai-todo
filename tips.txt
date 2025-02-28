@@ -231,3 +231,19 @@ ALWAYS CHECK EXISTING MODELS BEFORE CREATING NEW ONES:
    - Import config from ONE central location
    - Never duplicate config values across files
    - Makes it easy to modify values for all components
+
+19. Keep Solutions Simple
+-------------------------
+
+1. Don't overcomplicate simple requirements:
+   - Bad: Creating new tables for a simple reference
+   - Bad: Adding complex joins when a simple property will do
+   - Bad: Creating elaborate schemas for basic relationships
+   - Good: Adding a nullable property to reference another model
+   - Good: Using existing relationships when possible
+
+2. Signs you're overcomplicating:
+   - Creating new tables when a field would do
+   - Adding joins for simple lookups
+   - Making complex schemas for basic features
+   - Overthinking simple requirements

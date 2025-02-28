@@ -92,6 +92,7 @@ interface Goal {
   experiences: Experience[];
   strategies: Strategy[];
   tasks: Task[];
+  current_strategy_id: number | null;
 }
 
 interface TaskItemProps {
@@ -873,6 +874,31 @@ export default function GoalPage() {
     }));
   };
 
+  const handleSetCurrentStrategy = async (strategyId: number) => {
+    try {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_strategy_id: strategyId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update current strategy');
+      }
+
+      setGoal(prev => ({
+        ...prev!,
+        current_strategy_id: strategyId
+      }));
+    } catch (error) {
+      console.error('Error updating current strategy:', error);
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!goal) return <div>Goal not found</div>;
@@ -1113,7 +1139,7 @@ export default function GoalPage() {
               {/* Strategies */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-blue-600">Strategies</h3>
+                  <h3 className="text-lg font-semibold text-blue-600">Strategy</h3>
                   <Button
                     variant="outlined"
                     color="primary"
@@ -1122,9 +1148,31 @@ export default function GoalPage() {
                     Add
                   </Button>
                 </div>
-                <div className="space-y-3">
-                  {goal?.strategies.map(strategy => (
-                    <div key={strategy.id} className="p-3 bg-blue-50 rounded-lg">
+
+                {/* Strategy Selection */}
+                <FormControl size="small" className="mb-4">
+                  <Select
+                    value={goal?.current_strategy_id || ''}
+                    onChange={(e) => handleSetCurrentStrategy(e.target.value as number)}
+                    displayEmpty
+                    sx={{ minWidth: 200 }}
+                  >
+                    <MenuItem value="">
+                      <em>Select a strategy</em>
+                    </MenuItem>
+                    {goal?.strategies.map((strategy) => (
+                      <MenuItem key={strategy.id} value={strategy.id}>
+                        {strategy.title}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Display Current Strategy */}
+                {goal?.current_strategy_id && goal.strategies
+                  .filter(s => s.id === goal.current_strategy_id)
+                  .map(strategy => (
+                    <div key={strategy.id} className="p-3 bg-blue-100 rounded-lg border-2 border-blue-300">
                       <div className="flex justify-between items-center">
                         <h4 className="font-medium text-blue-800">{strategy.title}</h4>
                         <IconButton
@@ -1142,12 +1190,8 @@ export default function GoalPage() {
                           <li key={index} className="text-gray-700">{step}</li>
                         ))}
                       </ol>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {new Date(strategy.created_at).toLocaleString()}
-                      </p>
                     </div>
-                  ))}
-                </div>
+                ))}
               </div>
 
               {/* Positive Experiences */}
