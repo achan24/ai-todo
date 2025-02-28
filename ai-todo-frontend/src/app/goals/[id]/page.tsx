@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/solid';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import {
   Container,
   Typography,
@@ -899,6 +900,62 @@ export default function GoalPage() {
     }
   };
 
+  const handleCreateTodoFromStrategy = async (strategy: Strategy) => {
+    try {
+      // Create parent task from strategy title
+      const parentResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: strategy.title,
+          description: null,
+          priority: 'medium',
+          tags: [],
+          estimated_minutes: null,
+          due_date: null,
+        }),
+      });
+
+      if (!parentResponse.ok) {
+        throw new Error('Failed to create parent task');
+      }
+
+      const parentTask = await parentResponse.json();
+
+      // Create subtasks for each step
+      for (const step of strategy.steps) {
+        const subtaskResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: step,
+            description: null,
+            priority: 'medium',
+            tags: [],
+            estimated_minutes: null,
+            due_date: null,
+            parent_id: parentTask.id,
+          }),
+        });
+
+        if (!subtaskResponse.ok) {
+          throw new Error('Failed to create subtask');
+        }
+      }
+
+      // Refresh tasks list
+      const tasksResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`);
+      const updatedTasks = await tasksResponse.json();
+      setTasks(updatedTasks);
+    } catch (error) {
+      console.error('Error creating todo list:', error);
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!goal) return <div>Goal not found</div>;
@@ -1175,15 +1232,25 @@ export default function GoalPage() {
                     <div key={strategy.id} className="p-3 bg-blue-100 rounded-lg border-2 border-blue-300">
                       <div className="flex justify-between items-center">
                         <h4 className="font-medium text-blue-800">{strategy.title}</h4>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setEditingStrategy(strategy);
-                            setShowStrategyModal(true);
-                          }}
-                        >
-                          <PencilIcon className="h-4 w-4 text-blue-600" />
-                        </IconButton>
+                        <div className="flex items-center gap-1">
+                          <Tooltip title="Create Todo List">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleCreateTodoFromStrategy(strategy)}
+                            >
+                              <ListAltIcon className="h-4 w-4 text-blue-600" />
+                            </IconButton>
+                          </Tooltip>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setEditingStrategy(strategy);
+                              setShowStrategyModal(true);
+                            }}
+                          >
+                            <PencilIcon className="h-4 w-4 text-blue-600" />
+                          </IconButton>
+                        </div>
                       </div>
                       <ol className="list-decimal list-inside mt-2 space-y-1">
                         {strategy.steps.map((step, index) => (
@@ -1191,7 +1258,7 @@ export default function GoalPage() {
                         ))}
                       </ol>
                     </div>
-                ))}
+                  ))}
               </div>
 
               {/* Positive Experiences */}
