@@ -22,6 +22,10 @@ import {
   Chip,
   IconButton,
   MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Tooltip
 } from '@mui/material';
 import EditTaskDialog from '../../../components/EditTaskDialog';
 
@@ -946,8 +950,6 @@ export default function GoalPage() {
                         <Typography variant="body2">
                           {(() => {
                             const contributions = JSON.parse(metric.contributions_list || '[]');
-                            console.log('Metric:', metric.name);
-                            console.log('Contributions:', contributions);
                             const total = contributions.reduce((sum: number, c: any) => sum + (c.value || 0), 0);
                             return `${total} / ${metric.target_value || 0} ${metric.unit}`;
                           })()}
@@ -997,9 +999,38 @@ export default function GoalPage() {
                       </div>
                     </div>
                     <div className="mt-2">
-                      <Typography variant="h4" className="font-bold text-center">
-                        {metric.current_value || 0} {metric.unit}
-                      </Typography>
+                      <Tooltip
+                        title={
+                          <div className="text-sm">
+                            {(() => {
+                              const contributions = JSON.parse(metric.contributions_list || '[]')
+                                .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                                .slice(0, 5);
+                              if (contributions.length === 0) return 'No contributions yet';
+                              return (
+                                <div className="space-y-1">
+                                  <div className="font-semibold mb-2">Recent Contributions:</div>
+                                  {contributions.map((c: any, idx: number) => (
+                                    <div key={idx} className="text-white">
+                                      +{c.value} {metric.unit} ({new Date(c.timestamp).toLocaleDateString()})
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        }
+                        arrow
+                        placement="top"
+                      >
+                        <Typography variant="h4" className="font-bold text-center cursor-help">
+                          {(() => {
+                            const contributions = JSON.parse(metric.contributions_list || '[]');
+                            const total = contributions.reduce((sum: number, c: any) => sum + (c.value || 0), 0);
+                            return `${total} ${metric.unit}`;
+                          })()}
+                        </Typography>
+                      </Tooltip>
                     </div>
                   </div>
                 ))}
