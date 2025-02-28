@@ -2,18 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Container, Typography, Box, List, ListItem, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import { Button, Container, Typography, Box, List, ListItem, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { PencilIcon, TrashIcon, ClockIcon } from '@heroicons/react/24/solid';
+import config from '@/config/config';
 
 interface Goal {
   id: number;
   title: string;
-  description: string;
+  description?: string;
+  priority?: 'high' | 'medium' | 'low';
+  created_at: string;
+  updated_at: string;
+  user_id: number;
+  parent_id?: number;
+  current_strategy_id?: number;
   importance?: string;
   deadline?: string;
   progress?: number;
-  parent_id?: number | null;
   subgoals?: Goal[];
   tasks?: Task[];
 }
@@ -146,51 +152,37 @@ const GoalItem = ({
         )}
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {hasSubgoals && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCollapsed(!isCollapsed);
-                }}
-                className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-700"
-              >
-                {isCollapsed ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </button>
-            )}
-            <div>
-              <div className="flex items-center space-x-2">
-                <Typography>
-                  {goal.title}
-                </Typography>
-                <div className="flex gap-1">
-                  {badges.map((badge, index) => (
-                    <span key={index} className="text-lg">{badge}</span>
-                  ))}
-                </div>
-                {goal.deadline && (
-                  <div className="flex items-center text-gray-500 text-sm">
-                    <ClockIcon className="h-4 w-4 mr-1" />
-                    {new Date(goal.deadline).toLocaleDateString()}
-                  </div>
-                )}
+          <div className="flex-grow">
+            <div className="flex items-center gap-2">
+              <Typography>
+                {goal.title}
+              </Typography>
+              <div className="flex gap-1">
+                {badges.map((badge, index) => (
+                  <span key={index} className="text-lg">{badge}</span>
+                ))}
               </div>
-              {goal.description && (
-                <Typography variant="body2" color="text.secondary">
-                  {goal.description}
-                </Typography>
-              )}
             </div>
+            {goal.description && (
+              <Typography variant="body2" color="text.secondary">
+                {goal.description}
+              </Typography>
+            )}
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-3">
+            {goal.priority && (
+              <Chip 
+                size="small"
+                label={goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1)}
+                color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'default'}
+              />
+            )}
+            {goal.deadline && (
+              <div className="flex items-center text-gray-500 text-sm">
+                <ClockIcon className="h-4 w-4 mr-1" />
+                {new Date(goal.deadline).toLocaleDateString()}
+              </div>
+            )}
             {goal.progress !== undefined && (
               <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
                 {goal.progress}%
@@ -319,6 +311,13 @@ const DeleteConfirmationInputDialog = ({ open, goal, onClose, onConfirm }: Delet
 
 export default function GoalManager() {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editedGoalData, setEditedGoalData] = useState({
+    title: '',
+    description: '',
+    priority: '' as 'high' | 'medium' | 'low' | ''
+  });
   const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showDeleteConfirmationInput, setShowDeleteConfirmationInput] = useState(false);
@@ -400,7 +399,11 @@ export default function GoalManager() {
   };
 
   const handleEditGoal = (goalId: number) => {
-    router.push(`/goals/${goalId}`);
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    
+    setEditingGoal(goal);
+    setShowEditDialog(true);
   };
 
   const handleDeleteGoal = (goalId: number) => {
@@ -436,6 +439,43 @@ export default function GoalManager() {
       console.error('Error deleting goal:', error);
     }
   };
+
+  const handleEditGoalSubmit = async () => {
+    if (!editingGoal) return;
+
+    try {
+      const response = await fetch(`${config.apiUrl}/api/goals/${editingGoal.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editedGoalData.title,
+          description: editedGoalData.description,
+          priority: editedGoalData.priority || null
+        }),
+      });
+
+      if (response.ok) {
+        fetchGoals();
+        setShowEditDialog(false);
+        setEditingGoal(null);
+      }
+    } catch (error) {
+      console.error('Error updating goal:', error);
+    }
+  };
+
+  // Reset edit form when a goal is selected for editing
+  useEffect(() => {
+    if (editingGoal) {
+      setEditedGoalData({
+        title: editingGoal.title || '',
+        description: editingGoal.description || '',
+        priority: editingGoal.priority || ''
+      });
+    }
+  }, [editingGoal]);
 
   return (
     <Container maxWidth="lg" className="py-8">
@@ -492,6 +532,48 @@ export default function GoalManager() {
         }}
         onConfirm={handleFinalDeleteConfirmation}
       />
+
+      <Dialog open={showEditDialog} onClose={() => setShowEditDialog(false)}>
+        <DialogTitle>Edit Goal</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Title"
+            type="text"
+            fullWidth
+            value={editedGoalData.title}
+            onChange={(e) => setEditedGoalData(prev => ({ ...prev, title: e.target.value }))}
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            type="text"
+            fullWidth
+            multiline
+            rows={3}
+            value={editedGoalData.description}
+            onChange={(e) => setEditedGoalData(prev => ({ ...prev, description: e.target.value }))}
+          />
+          <FormControl fullWidth margin="dense">
+            <InputLabel>Priority</InputLabel>
+            <Select
+              value={editedGoalData.priority}
+              onChange={(e) => setEditedGoalData(prev => ({ ...prev, priority: e.target.value as 'high' | 'medium' | 'low' | '' }))}
+              label="Priority"
+            >
+              <MenuItem value="">None</MenuItem>
+              <MenuItem value="high">High</MenuItem>
+              <MenuItem value="medium">Medium</MenuItem>
+              <MenuItem value="low">Low</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowEditDialog(false)}>Cancel</Button>
+          <Button onClick={handleEditGoalSubmit}>Save</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

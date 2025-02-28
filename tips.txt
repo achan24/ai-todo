@@ -247,3 +247,44 @@ ALWAYS CHECK EXISTING MODELS BEFORE CREATING NEW ONES:
    - Adding joins for simple lookups
    - Making complex schemas for basic features
    - Overthinking simple requirements
+
+20. Adding New Properties to Existing Models Checklist:
+
+1. Database Layer:
+   - Add the column to the SQLModel/SQLAlchemy model (models/*.py)
+   - Create an Alembic migration script
+   - For SQLite: Use create_table -> copy -> drop -> rename pattern instead of ALTER TABLE
+   - Test the migration both up and down
+
+2. Schema Layer:
+   - Add the field to all relevant Pydantic schemas (schemas/*.py):
+     * Base schema (optional/required field)
+     * Create schema (if needed for creation)
+     * Update schema (usually as Optional)
+     * Response schema (if different from base)
+
+3. API Layer:
+   - Update API endpoints to handle the new field
+   - Add field validation if needed
+   - Update response preparation functions
+   - Test API endpoints with the new field
+
+4. Frontend Layer:
+   - Update TypeScript interfaces to include the new field
+   - Add UI components to display the field
+   - Add form inputs to edit the field
+   - Update API calls to send/receive the field
+   - Add any needed validation
+   - Style new UI elements
+
+5. Testing:
+   - Test the complete flow from UI to database and back
+   - Test edge cases (null values, invalid inputs)
+   - Test any new validation rules
+
+Common Gotchas:
+- Remember to handle null/undefined values consistently
+- Keep field names consistent across all layers
+- Consider backwards compatibility
+- Update all relevant documentation
+- Consider the impact on existing data

@@ -36,6 +36,7 @@ class Goal(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
+    priority = Column(String, nullable=True)  # high, medium, low
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     user_id = Column(Integer, default=1)  

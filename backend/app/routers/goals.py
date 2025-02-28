@@ -153,10 +153,13 @@ async def update_goal(
         db_goal.parent_id = goal_update.parent_id
     if goal_update.current_strategy_id is not None:
         db_goal.current_strategy_id = goal_update.current_strategy_id
+    if goal_update.priority is not None:
+        db_goal.priority = goal_update.priority
 
     db.commit()
     db.refresh(db_goal)
-    return db_goal
+    goal = prepare_goal_for_response(db_goal)
+    return goal
 
 @router.delete("/{goal_id}")
 async def delete_goal(

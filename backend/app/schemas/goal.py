@@ -66,6 +66,7 @@ class Metric(MetricBase):
 class GoalBase(BaseModel):
     title: str
     description: str | None = None
+    priority: str | None = None  # high, medium, low
     parent_id: int | None = None
     current_strategy_id: int | None = None
 
@@ -75,6 +76,7 @@ class GoalCreate(GoalBase):
 class GoalUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    priority: Optional[str] = None
     parent_id: Optional[int] = None
     current_strategy_id: Optional[int] = None
 
