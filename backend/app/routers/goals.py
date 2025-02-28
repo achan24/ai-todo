@@ -47,6 +47,14 @@ def prepare_metrics_for_response(metrics):
             metric.contributions_list = '[]'
     return metrics
 
+def prepare_goal_for_response(goal):
+    """Recursively prepare all metrics in a goal and its subgoals"""
+    if goal.metrics:
+        goal.metrics = prepare_metrics_for_response(goal.metrics)
+    for subgoal in goal.subgoals:
+        prepare_goal_for_response(subgoal)
+    return goal
+
 @router.get("/", response_model=List[GoalSchema])
 async def get_goals(
     db: Session = Depends(get_db),
@@ -64,9 +72,7 @@ async def get_goals(
     
     # Prepare metrics for response
     for goal in goals:
-        goal.metrics = prepare_metrics_for_response(goal.metrics)
-        for subgoal in goal.subgoals:
-            subgoal.metrics = prepare_metrics_for_response(subgoal.metrics)
+        goal = prepare_goal_for_response(goal)
     
     # Return only top-level goals (those without parents)
     return [goal for goal in goals if goal.parent_id is None]
@@ -104,11 +110,8 @@ async def read_goal(
     if goal is None:
         raise HTTPException(status_code=404, detail="Goal not found")
         
-    # Prepare metrics for response
-    goal.metrics = prepare_metrics_for_response(goal.metrics)
-    for subgoal in goal.subgoals:
-        subgoal.metrics = prepare_metrics_for_response(subgoal.metrics)
-        
+    # Recursively prepare all metrics in the goal tree
+    goal = prepare_goal_for_response(goal)
     return goal
 
 @router.put("/{goal_id}", response_model=GoalSchema)
