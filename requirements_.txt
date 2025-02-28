@@ -375,9 +375,30 @@ Homepage is my goals.
         - Include a timestamp
     - Example Strategy
         - Series of steps to accomplish something.
-        
-
-
+    - Allow user to edit strategy
+    - Allow user to switch between different strategies
+    - Allow user to select the current strategy
+- Use the current strategy as a template for a todo list
+    - The list will be created with the strategy name as the parent task
+        - Steps will be subtasks for the parent
+         
+Configuration Management
+-----------------------
+- Use environment-based configuration
+    - Development environment (.env.development)
+        - Local API URL
+        - Debug settings
+    - Production environment (.env.production)
+        - Production API URL
+        - Production-specific settings
+- Centralize configuration
+    - One source of truth for all config values
+    - No hardcoded values in components
+    - Easy to modify for different deployments
+- Use TypeScript interfaces for config
+    - Type-safe access to config values
+    - IDE autocompletion support
+    - Prevents typos and mistakes
 
 Updated Specification
 

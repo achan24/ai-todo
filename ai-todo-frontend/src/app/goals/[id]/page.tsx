@@ -28,6 +28,7 @@ import {
   Tooltip
 } from '@mui/material';
 import EditTaskDialog from '../../../components/EditTaskDialog';
+import config from '@/config/config';
 
 interface Task {
   id: number;
@@ -331,6 +332,7 @@ export default function GoalPage() {
   });
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
 
   useEffect(() => {
     fetchGoalData();
@@ -340,7 +342,7 @@ export default function GoalPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`http://localhost:8005/api/goals/${params.id}`);
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch goal');
       }
@@ -353,7 +355,7 @@ export default function GoalPage() {
         tasks: data.tasks || [] // Ensure tasks is always an array
       });
 
-      const tasksResponse = await fetch(`http://localhost:8005/api/goals/${params.id}/tasks`);
+      const tasksResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`);
       if (tasksResponse.ok) {
         const tasksData = await tasksResponse.json();
         setTasks(tasksData.map((task: Task) => ({
@@ -379,7 +381,7 @@ export default function GoalPage() {
     if (!newTaskTitle.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/tasks`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -422,7 +424,7 @@ export default function GoalPage() {
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${updatedTask.id}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${updatedTask.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -472,7 +474,7 @@ export default function GoalPage() {
       }
 
       // Use single endpoint for all task completions
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -519,7 +521,7 @@ export default function GoalPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'DELETE',
       });
 
@@ -598,7 +600,7 @@ export default function GoalPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${draggedTaskId}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${draggedTaskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -626,7 +628,7 @@ export default function GoalPage() {
         throw new Error('Name and unit are required');
       }
 
-      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/metrics`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/metrics`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -676,7 +678,7 @@ export default function GoalPage() {
 
   const handleUpdateMetric = async (metricId: number, updates: Partial<Metric>) => {
     try {
-      const response = await fetch(`http://localhost:8005/api/metrics/${metricId}`, {
+      const response = await fetch(`${config.apiUrl}/api/metrics/${metricId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -699,7 +701,7 @@ export default function GoalPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`http://localhost:8005/api/metrics/${metricId}`, {
+      const response = await fetch(`${config.apiUrl}/api/metrics/${metricId}`, {
         method: 'DELETE',
       });
 
@@ -715,7 +717,7 @@ export default function GoalPage() {
 
   const handleUpdateDescription = async () => {
     try {
-      const response = await fetch(`http://localhost:8005/api/goals/${params.id}`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -742,7 +744,7 @@ export default function GoalPage() {
         throw new Error('Content is required');
       }
 
-      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/experiences`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/experiences`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -774,18 +776,22 @@ export default function GoalPage() {
     }
   };
 
-  const handleAddStrategy = async () => {
+  const handleAddStrategy = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
       if (!newStrategy.title || newStrategy.steps.some(step => !step)) {
         throw new Error('Title and all steps are required');
       }
 
-      const response = await fetch(`http://localhost:8005/api/goals/${params.id}/strategies`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/strategies`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newStrategy),
+        body: JSON.stringify({
+          title: newStrategy.title,
+          steps: newStrategy.steps.filter(step => step.trim() !== '')
+        }),
       });
 
       if (!response.ok) {
@@ -809,6 +815,40 @@ export default function GoalPage() {
       });
     } catch (error) {
       console.error('Error adding strategy:', error);
+    }
+  };
+
+  const handleEditStrategy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStrategy) return;
+
+    try {
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/strategies/${editingStrategy.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editingStrategy.title,
+          steps: editingStrategy.steps.filter(step => step.trim() !== '')
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update strategy');
+      }
+
+      const updatedStrategy = await response.json();
+      setGoal(prev => ({
+        ...prev!,
+        strategies: prev!.strategies.map(s => 
+          s.id === updatedStrategy.id ? updatedStrategy : s
+        )
+      }));
+      setEditingStrategy(null);
+      setShowStrategyModal(false);
+    } catch (error) {
+      console.error('Error updating strategy:', error);
     }
   };
 
@@ -1085,7 +1125,18 @@ export default function GoalPage() {
                 <div className="space-y-3">
                   {goal?.strategies.map(strategy => (
                     <div key={strategy.id} className="p-3 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-800">{strategy.title}</h4>
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium text-blue-800">{strategy.title}</h4>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setEditingStrategy(strategy);
+                            setShowStrategyModal(true);
+                          }}
+                        >
+                          <PencilIcon className="h-4 w-4 text-blue-600" />
+                        </IconButton>
+                      </div>
                       <ol className="list-decimal list-inside mt-2 space-y-1">
                         {strategy.steps.map((step, index) => (
                           <li key={index} className="text-gray-700">{step}</li>
@@ -1296,64 +1347,119 @@ export default function GoalPage() {
       </Dialog>
 
       {/* Strategy Modal */}
-      <Dialog
-        open={showStrategyModal}
-        onClose={() => setShowStrategyModal(false)}
-        maxWidth="sm"
+      <Dialog 
+        open={showStrategyModal} 
+        onClose={() => {
+          setShowStrategyModal(false);
+          setEditingStrategy(null);
+          setNewStrategy({ title: '', steps: [''] });
+        }}
+        maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Add Strategy</DialogTitle>
-        <DialogContent>
-          <div className="space-y-4 mt-4">
+        <DialogTitle>{editingStrategy ? 'Edit Strategy' : 'Add Strategy'}</DialogTitle>
+        <form onSubmit={editingStrategy ? handleEditStrategy : handleAddStrategy}>
+          <DialogContent>
             <TextField
+              autoFocus
+              margin="dense"
               label="Strategy Title"
+              type="text"
               fullWidth
-              value={newStrategy.title}
-              onChange={(e) => setNewStrategy({ ...newStrategy, title: e.target.value })}
-              placeholder="Enter strategy title..."
+              value={editingStrategy ? editingStrategy.title : newStrategy.title}
+              onChange={(e) => {
+                if (editingStrategy) {
+                  setEditingStrategy({
+                    ...editingStrategy,
+                    title: e.target.value
+                  });
+                } else {
+                  setNewStrategy({
+                    ...newStrategy,
+                    title: e.target.value
+                  });
+                }
+              }}
+              required
             />
-            <div className="space-y-3">
-              {newStrategy.steps.map((step, index) => (
-                <div key={index} className="flex gap-2">
+            <div className="mt-4">
+              <Typography variant="subtitle1" className="mb-2">Steps</Typography>
+              {(editingStrategy ? editingStrategy.steps : newStrategy.steps).map((step, index) => (
+                <div key={index} className="flex gap-2 mb-2">
                   <TextField
-                    label={`Step ${index + 1}`}
                     fullWidth
+                    label={`Step ${index + 1}`}
                     value={step}
-                    onChange={(e) => handleUpdateStrategyStep(index, e.target.value)}
-                    placeholder="Enter step description..."
+                    onChange={(e) => {
+                      const newSteps = [...(editingStrategy ? editingStrategy.steps : newStrategy.steps)];
+                      newSteps[index] = e.target.value;
+                      if (editingStrategy) {
+                        setEditingStrategy({
+                          ...editingStrategy,
+                          steps: newSteps
+                        });
+                      } else {
+                        setNewStrategy({
+                          ...newStrategy,
+                          steps: newSteps
+                        });
+                      }
+                    }}
+                    required
                   />
-                  {newStrategy.steps.length > 1 && (
-                    <IconButton
-                      color="error"
-                      onClick={() => handleRemoveStrategyStep(index)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  )}
+                  <IconButton
+                    onClick={() => {
+                      const newSteps = [...(editingStrategy ? editingStrategy.steps : newStrategy.steps)];
+                      newSteps.splice(index, 1);
+                      if (editingStrategy) {
+                        setEditingStrategy({
+                          ...editingStrategy,
+                          steps: newSteps
+                        });
+                      } else {
+                        setNewStrategy({
+                          ...newStrategy,
+                          steps: newSteps
+                        });
+                      }
+                    }}
+                    disabled={(editingStrategy ? editingStrategy.steps : newStrategy.steps).length <= 1}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                 </div>
               ))}
               <Button
-                startIcon={<AddIcon />}
-                onClick={handleAddStrategyStep}
-                variant="outlined"
-                fullWidth
+                variant="text"
+                onClick={() => {
+                  if (editingStrategy) {
+                    setEditingStrategy({
+                      ...editingStrategy,
+                      steps: [...editingStrategy.steps, '']
+                    });
+                  } else {
+                    setNewStrategy({
+                      ...newStrategy,
+                      steps: [...newStrategy.steps, '']
+                    });
+                  }
+                }}
               >
                 Add Step
               </Button>
             </div>
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowStrategyModal(false)}>Cancel</Button>
-          <Button
-            onClick={handleAddStrategy}
-            variant="contained"
-            color="primary"
-            disabled={!newStrategy.title || newStrategy.steps.some(step => !step)}
-          >
-            Add Strategy
-          </Button>
-        </DialogActions>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setShowStrategyModal(false);
+              setEditingStrategy(null);
+              setNewStrategy({ title: '', steps: [''] });
+            }}>Cancel</Button>
+            <Button type="submit" variant="contained">
+              {editingStrategy ? 'Update' : 'Create'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
 
       <EditTaskDialog

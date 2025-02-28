@@ -165,3 +165,69 @@ ALWAYS CHECK EXISTING MODELS BEFORE CREATING NEW ONES:
    - Create tables if they don't exist: Base.metadata.create_all(bind=engine)
    - Use the same database URL as the main app
    - Test the script with a small subset of data first
+
+15. Before Adding New Features
+-------------------------
+
+1. ALWAYS check if the functionality already exists:
+   - Search through the codebase for relevant endpoints and components
+   - Check both frontend and backend implementations
+   - Look for similar patterns that might already handle the use case
+   - Don't waste time implementing something that's already there
+
+2. If adding new functionality:
+   - Document where you looked and what's missing
+   - Explain why the existing code can't handle the use case
+   - Then proceed with the implementation
+
+16. Function Naming Consistency
+-------------------------
+
+1. Keep function names consistent with their purpose and UI:
+   - If a button says "Edit", the handler should be "handleEdit..."
+   - If a button says "Add", the handler should be "handleAdd..."
+   - Don't introduce new variations like "create", "save", "update" for the same action
+   - Bad: handleCreateStrategy when the UI says "Add Strategy"
+   - Good: handleAddStrategy for "Add Strategy" button
+   - Good: handleEditStrategy for "Edit Strategy" button
+
+2. Follow the established pattern in the codebase:
+   - Look at similar features to maintain consistency
+   - Don't mix different naming conventions for the same type of action
+
+17. API Endpoints and URLs
+-------------------------
+
+1. NEVER hardcode URLs or API endpoints:
+   - Don't use absolute URLs like "http://localhost:8005/api/..."
+   - Use relative URLs like "/api/..." that will work in any environment
+   - This ensures the app can be deployed without code changes
+
+2. Be consistent with URL patterns:
+   - Use the same URL structure throughout the application
+   - If using relative URLs, use them everywhere
+   - Don't mix relative and absolute URLs
+
+18. Configuration Management
+-------------------------
+
+1. NEVER hardcode configuration values in components:
+   - Bad: const response = await fetch('http://localhost:8005/api/...')
+   - Bad: const API_URL = 'http://localhost:8005' in component files
+   - Good: Create a dedicated config file that loads from environment
+
+2. Use environment-aware configuration:
+   - Create config files for different environments (dev, prod)
+   - Use environment variables for sensitive or deployment-specific values
+   - Example structure:
+     ```
+     /config
+       config.ts         # Base config interface
+       config.dev.ts     # Development overrides
+       config.prod.ts    # Production overrides
+     ```
+
+3. Access config through a single source of truth:
+   - Import config from ONE central location
+   - Never duplicate config values across files
+   - Makes it easy to modify values for all components
