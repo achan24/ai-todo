@@ -381,6 +381,19 @@ Homepage is my goals.
 - Use the current strategy as a template for a todo list
     - The list will be created with the strategy name as the parent task
         - Steps will be subtasks for the parent
+- Process view mode
+    - This mode is only for a parent task
+    - It will start a new dialog with the process view
+    - This dialog will be a list of subtasks with the time it took to complete the task
+        - or the estimated time (if there is one)
+        - or a countup - to find the time 
+    - User will be able to take notes for a particular task
+
+- Filter tasks on goal page
+    - Sort by Date Created, ascending or descending
+    - Filter by priority
+    - Show completed tasks
+
          
 Configuration Management
 -----------------------

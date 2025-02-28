@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/solid';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,7 +26,9 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Tooltip
+  Tooltip,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import EditTaskDialog from '../../../components/EditTaskDialog';
 import config from '@/config/config';
@@ -335,6 +337,21 @@ export default function GoalPage() {
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const filteredTasks = useMemo(() => {
+    return tasks
+      .filter(task => !task.parent_id) // Only top-level tasks
+      .filter(task => showCompleted || !task.completed) // Filter by completion
+      .filter(task => priorityFilter === 'all' || task.priority === priorityFilter) // Filter by priority
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+  }, [tasks, sortOrder, priorityFilter, showCompleted]);
 
   useEffect(() => {
     fetchGoalData();
@@ -779,7 +796,6 @@ export default function GoalPage() {
   };
 
   const handleAddStrategy = async (e: React.FormEvent) => {
-    e.preventDefault();
     try {
       if (!newStrategy.title || newStrategy.steps.some(step => !step)) {
         throw new Error('Title and all steps are required');
@@ -1326,22 +1342,59 @@ export default function GoalPage() {
 
           {/* Tasks List */}
           <Paper className="bg-white shadow rounded-lg">
-            <List>
-              {tasks
-                .filter(task => !task.parent_id)
-                .map(task => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onToggleComplete={toggleTaskCompletion}
-                    onEdit={setEditingTask}
-                    onDelete={handleDeleteTask}
+            <Box className="p-4 border-b flex items-center gap-4">
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Sort by Date</InputLabel>
+                <Select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                  label="Sort by Date"
+                >
+                  <MenuItem value="desc">Newest First</MenuItem>
+                  <MenuItem value="asc">Oldest First</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Priority</InputLabel>
+                <Select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
+                  label="Priority"
+                >
+                  <MenuItem value="all">All Priorities</MenuItem>
+                  <MenuItem value="high">High</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="low">Low</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showCompleted}
+                    onChange={(e) => setShowCompleted(e.target.checked)}
+                    size="small"
                   />
-                ))}
+                }
+                label="Show Completed"
+              />
+            </Box>
+
+            <List>
+              {filteredTasks.map(task => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onToggleComplete={toggleTaskCompletion}
+                  onEdit={setEditingTask}
+                  onDelete={handleDeleteTask}
+                />
+              ))}
             </List>
           </Paper>
         </div>
