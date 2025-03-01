@@ -33,25 +33,25 @@ ai-todo/
 
 ## Development Roadmap
 
-### Phase 1 - Core Functionality (Current)
+### Phase 1 - Core Functionality (Completed)
 - [x] Basic task management (CRUD operations)
 - [x] AI-powered task prioritization
 - [x] Frontend UI components
 - [x] Backend API structure
-- [ ] Database setup and migrations
-- [ ] AI service integration
+- [x] Database setup and migrations
+- [x] AI service integration
 
-### Phase 2 - Enhanced Features
-- [ ] Voice notes
-- [ ] Daily check-ins
-- [ ] Task nesting
-- [ ] Progress visualization
+### Phase 2 - Enhanced Features (Completed)
+- [x] Voice notes
+- [x] Daily check-ins
+- [x] Task nesting
+- [x] Progress visualization
 
-### Phase 3 - Polish & Security (Later)
-- [ ] Authentication & Authorization
-- [ ] User profiles
-- [ ] Data encryption
-- [ ] API rate limiting
+### Phase 3 - Polish & Security (Completed)
+- [x] Authentication & Authorization with Supabase
+- [x] User profiles
+- [x] Data encryption
+- [x] API rate limiting
 
 ## Getting Started
 
@@ -71,6 +71,55 @@ uvicorn app.main:app --reload --port 8005
 ```
 Runs on http://localhost:8005
 
+## Deployment
+
+### Frontend Deployment (Vercel)
+
+1. Push your code to GitHub
+2. Connect your GitHub repository to Vercel
+3. Set the following environment variables in Vercel:
+   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
+   - `NEXT_PUBLIC_API_URL`: URL of your deployed backend API
+
+```bash
+# Deploy manually from your local machine
+cd ai-todo-frontend
+vercel
+```
+
+### Backend Deployment (Railway or Render)
+
+1. Push your code to GitHub
+2. Connect your GitHub repository to Railway or Render
+3. Set the following environment variables:
+   - `DATABASE_URL`: Your Supabase PostgreSQL connection string
+   - `SUPABASE_URL`: Your Supabase project URL
+   - `SUPABASE_SERVICE_KEY`: Your Supabase service role key
+   - `SUPABASE_JWT_SECRET`: Your Supabase JWT secret
+   - `SUPABASE_USER_ID`: The UUID of your user in Supabase
+   - `OPENAI_API_KEY`: Your OpenAI API key
+
+```bash
+# For Railway deployment
+cd backend
+railway link
+railway up
+```
+
+## Database Migration
+
+The application now uses Supabase PostgreSQL for data storage. Data migration from SQLite to Supabase can be done using the provided scripts:
+
+```bash
+# Backup SQLite data
+cd backend
+python scripts/backup_data.py
+
+# Restore data to Supabase
+python scripts/restore_to_supabase.py
+```
+
 ## Testing
 
 ```bash
@@ -79,5 +128,6 @@ pytest
 ```
 
 ## Notes
-- Authentication will be implemented in Phase 3 to focus on core functionality first
-- Currently using simple in-memory storage; will migrate to PostgreSQL later
+- Authentication is implemented using Supabase Authentication
+- Data is stored in Supabase PostgreSQL database
+- The application uses JWT tokens for API authentication
