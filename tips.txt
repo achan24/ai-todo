@@ -288,3 +288,15 @@ Common Gotchas:
 - Consider backwards compatibility
 - Update all relevant documentation
 - Consider the impact on existing data
+
+21. NEVER DELETE EXISTING FUNCTIONALITY
+    - Always preserve existing features when adding new ones
+    - Test that old features still work after adding new ones
+    - If changes are needed to existing code, adapt the new code to work with it
+    - Document any changes to existing functionality
+
+22. ADAPT NEW CODE TO EXISTING PATTERNS
+    - Study the existing codebase structure before adding new features
+    - Follow established naming conventions and patterns
+    - Reuse existing components and utilities where possible
+    - Keep consistent with existing UI/UX patterns

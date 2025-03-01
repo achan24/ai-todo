@@ -5,14 +5,19 @@ import logging
 from fastapi.responses import JSONResponse
 from datetime import datetime
 import json
+from pydantic import BaseModel
 
 from ..database import get_db
-from ..services import task_service
+from ..services import task_service, ai_service
 from ..schemas.task import Task, TaskCreate, TaskUpdate, TaskWithAIRecommendation
 from ..models.goal import Metric
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+class TaskBreakdownRequest(BaseModel):
+    custom_prompt: str | None = None
+    messages: List[dict] | None = None
 
 @router.get("/", response_model=List[Task])
 async def get_tasks(
@@ -108,3 +113,37 @@ async def get_next_task_recommendation(db: Session = Depends(get_db)):
             status_code=500,
             content={"detail": f"Error getting task recommendation: {str(e)}"}
         )
+
+@router.post("/{task_id}/breakdown")
+async def get_task_breakdown(
+    task_id: int,
+    request: TaskBreakdownRequest,
+    db: Session = Depends(get_db)
+):
+    """Get AI-generated breakdown of a task into subtasks"""
+    try:
+        logger.info(f"Getting breakdown for task {task_id}")
+        task = await task_service.get_task(db, task_id, user_id=1)  # Default user_id=1 for now
+        if not task:
+            logger.error(f"Task {task_id} not found")
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        logger.info(f"Using custom prompt: {request.custom_prompt}")
+        logger.info(f"Chat history: {request.messages}")
+        
+        result = await ai_service.breakdown_task(
+            task_title=task.title,
+            task_description=task.description,
+            custom_prompt=request.custom_prompt,
+            messages=request.messages
+        )
+        
+        if not result.get("subtasks"):
+            logger.error("No subtasks generated")
+            raise HTTPException(status_code=500, detail="Failed to generate subtasks")
+            
+        logger.info(f"Generated {len(result['subtasks'])} subtasks")
+        return result
+    except Exception as e:
+        logger.error(f"Error breaking down task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

@@ -6,6 +6,7 @@ import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/s
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import {
   Container,
   Typography,
@@ -35,6 +36,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditTaskDialog from '../../../components/EditTaskDialog';
+import TaskBreakdownDialog from '../../../components/TaskBreakdownDialog';
 import config from '@/config/config';
 
 interface Task {
@@ -128,7 +130,39 @@ const TaskItem = ({
   showDates
 }: TaskItemProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showBreakdownDialog, setShowBreakdownDialog] = useState(false);
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+
+  const handleAddSubtasks = async (subtasks: Partial<Task>[]) => {
+    try {
+      const responses = await Promise.all(
+        subtasks.map(subtask =>
+          fetch(`${config.apiUrl}/api/tasks`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...subtask,
+              parent_id: task.id,
+              goal_id: task.goal_id
+            }),
+          })
+        )
+      );
+
+      // Check if all responses were successful
+      const hasError = responses.some(r => !r.ok);
+      if (hasError) {
+        throw new Error('Failed to create some subtasks');
+      }
+
+      // Refresh the goal data to show new subtasks
+      window.location.reload();
+    } catch (err) {
+      console.error('Error creating subtasks:', err);
+    }
+  };
 
   return (
     <>
@@ -280,15 +314,32 @@ const TaskItem = ({
                 />
               )}
               <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowBreakdownDialog(true);
+                }}
                 size="small"
-                onClick={() => onEdit(task)}
+                className="text-purple-600"
+              >
+                <AutoFixHighIcon className="h-4 w-4" />
+              </IconButton>
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(task);
+                }}
+                size="small"
+                className="text-gray-600 hover:text-blue-600"
               >
                 <PencilIcon className="h-4 w-4" />
               </IconButton>
               <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(task.id, task.title);
+                }}
                 size="small"
-                color="error"
-                onClick={() => onDelete(task.id, task.title)}
+                className="text-red-600"
               >
                 <TrashIcon className="h-4 w-4" />
               </IconButton>
@@ -296,23 +347,27 @@ const TaskItem = ({
           </div>
         </div>
       </li>
-      {hasSubtasks && !isCollapsed && (
-        task.subtasks.map(subtask => (
-          <TaskItem 
-            key={subtask.id} 
-            task={subtask} 
-            level={level + 1}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onToggleComplete={onToggleComplete}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            showDates={showDates}
-          />
-        ))
-      )}
+      {!isCollapsed && task.subtasks && task.subtasks.map(subtask => (
+        <TaskItem
+          key={subtask.id}
+          task={subtask}
+          level={level + 1}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onToggleComplete={onToggleComplete}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          showDates={showDates}
+        />
+      ))}
+      <TaskBreakdownDialog
+        open={showBreakdownDialog}
+        task={task}
+        onClose={() => setShowBreakdownDialog(false)}
+        onAddSubtasks={handleAddSubtasks}
+      />
     </>
   );
 };
