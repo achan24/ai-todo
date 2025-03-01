@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/solid';
 import AddIcon from '@mui/icons-material/Add';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -391,6 +392,8 @@ export default function GoalPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showMetricModal, setShowMetricModal] = useState(false);
+  const [showPasteTasksDialog, setShowPasteTasksDialog] = useState(false);
+  const [pastedTasksText, setPastedTasksText] = useState('');
   const [newMetric, setNewMetric] = useState<Partial<Metric>>({
     name: '',
     description: '',
@@ -1098,6 +1101,65 @@ export default function GoalPage() {
     }
   };
 
+  const handlePasteTasks = async () => {
+    if (!pastedTasksText.trim()) return;
+    
+    try {
+      // Split the pasted text by new lines and filter out empty lines
+      const taskTitles = pastedTasksText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      
+      if (taskTitles.length === 0) return;
+      
+      // Create tasks in sequence
+      const newTasks = [];
+      for (const title of taskTitles) {
+        const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title,
+            description: null,
+            priority: 'medium',
+            due_date: null,
+            tags: [],
+            parent_id: null,
+            estimated_minutes: null,
+            metric_id: null,
+            contribution_value: null,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Server error:', errorData);
+          throw new Error(`Failed to add task: ${title}`);
+        }
+
+        const newTask = await response.json();
+        newTasks.push({ 
+          ...newTask, 
+          tags: newTask.tags || [], 
+          estimated_minutes: newTask.estimated_minutes || null,
+          priority: newTask.priority || 'medium',
+          metric_id: newTask.metric_id || null,
+          contribution_value: newTask.contribution_value || null,
+          subtasks: newTask.subtasks || []
+        });
+      }
+      
+      setTasks([...tasks, ...newTasks]);
+      setPastedTasksText('');
+      setShowPasteTasksDialog(false);
+    } catch (error) {
+      console.error('Error adding tasks:', error);
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!goal) return <div>Goal not found</div>;
@@ -1466,7 +1528,7 @@ export default function GoalPage() {
             </Typography>
             <Box component="form" onSubmit={handleAddTask} sx={{ mt: 2 }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={9}>
+                <Grid item xs={12} sm={7}>
                   <TextField
                     fullWidth
                     value={newTaskTitle}
@@ -1476,7 +1538,7 @@ export default function GoalPage() {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12} sm={2}>
                   <Button
                     fullWidth
                     variant="contained"
@@ -1485,6 +1547,17 @@ export default function GoalPage() {
                     disabled={!newTaskTitle.trim()}
                   >
                     Add Task
+                  </Button>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    color="secondary"
+                    onClick={() => setShowPasteTasksDialog(true)}
+                    startIcon={<ContentPasteIcon />}
+                  >
+                    Paste Tasks
                   </Button>
                 </Grid>
               </Grid>
@@ -1794,6 +1867,42 @@ export default function GoalPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Paste Tasks Dialog */}
+      <Dialog
+        open={showPasteTasksDialog}
+        onClose={() => setShowPasteTasksDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Paste Multiple Tasks</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enter one task per line. Each line will be created as a separate task.
+          </Typography>
+          <TextField
+            autoFocus
+            multiline
+            rows={10}
+            value={pastedTasksText}
+            onChange={(e) => setPastedTasksText(e.target.value)}
+            fullWidth
+            variant="outlined"
+            placeholder="Task 1&#10;Task 2&#10;Task 3&#10;..."
+            margin="normal"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPasteTasksDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handlePasteTasks} 
+            variant="contained"
+            disabled={!pastedTasksText.trim()}
+          >
+            Add Tasks
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <EditTaskDialog
