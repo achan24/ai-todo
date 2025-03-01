@@ -1,0 +1,51 @@
+[
+  {
+    "id": 1,
+    "title": "App Development 1",
+    "steps": "[\"Open Windsurf\", \"Select Feature to work on\", \"Iterate until it works\", \"Save to GitHub\"]",
+    "created_at": "2025-02-26 23:37:31",
+    "goal_id": 5
+  },
+  {
+    "id": 2,
+    "title": "Read Chapter",
+    "steps": "[\"Open Up Book\", \"Skim Chapter\", \"Ask into ChatGpt the most relevant topics\", \"Read those sections\", \"Take notes\", \"Paraphrase\"]",
+    "created_at": "2025-02-27 09:50:49",
+    "goal_id": 8
+  },
+  {
+    "id": 3,
+    "title": "Default",
+    "steps": "[\"Add CD part to Obsidian\", \"Listen to it\", \"Take notes\"]",
+    "created_at": "2025-02-27 11:10:10",
+    "goal_id": 13
+  },
+  {
+    "id": 4,
+    "title": "App Development 2",
+    "steps": "[\"Step 1\", \"Step 2\", \"Step 3\"]",
+    "created_at": "2025-02-28 11:06:57",
+    "goal_id": 5
+  },
+  {
+    "id": 5,
+    "title": "CPP Project Development 1",
+    "steps": "[\"Open Project Brief\", \"Open Project Notes\", \"Open Windsurf or VSCode\", \"Pick one feature to implement\", \"Implement Feature\", \"Maybe add one test\"]",
+    "created_at": "2025-03-01 21:28:34",
+    "goal_id": 11
+  },
+  {
+    "id": 6,
+    "title": "Test",
+    "steps": "[\"Step 1\", \"Step 2\", \"Step 3\"]",
+    "created_at": "2025-03-01 21:38:52",
+    "goal_id": 11
+  },
+  {
+    "id": 7,
+    "title": "Review Slides",
+    "steps": "[\"Open Slides\", \"Find best ideas\", \"Take notes\", \"Talk out loud about the ideas\", \"Create quiz\"]",
+    "created_at": "2025-03-01 21:39:36",
+    "goal_id": 11
+  }
+]

@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import GoalManager from '@/components/GoalManager'
+import ProtectedRoute from '@/components/Auth/ProtectedRoute';
+import UserProfileHeader from '@/components/Auth/UserProfileHeader';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Metric {
   id: number;
@@ -234,5 +237,15 @@ const GoalMetrics = ({ metrics, goalId }: { metrics: Metric[], goalId: number })
 };
 
 export default function Home() {
-  return <GoalManager />
+  return (
+    <ProtectedRoute>
+      <div className="flex flex-col min-h-screen">
+        <UserProfileHeader />
+        <main className="container mx-auto px-4 py-8 flex-grow">
+          <h1 className="text-3xl font-bold mb-6">AI Todo - ADHD Productivity System</h1>
+          <GoalManager />
+        </main>
+      </div>
+    </ProtectedRoute>
+  );
 }

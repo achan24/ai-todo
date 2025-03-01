@@ -1,0 +1,93 @@
+[
+  {
+    "id": 1,
+    "content": "Created the metrics feature and it was awesome!",
+    "type": "positive",
+    "created_at": "2025-02-26 23:38:07",
+    "goal_id": 5
+  },
+  {
+    "id": 2,
+    "content": "The Experiences/Strategies tab was made like super quickly",
+    "type": "positive",
+    "created_at": "2025-02-26 23:38:24",
+    "goal_id": 5
+  },
+  {
+    "id": 3,
+    "content": "Commit when making substantial changes to content.  It will save the sqlite db file.",
+    "type": "negative",
+    "created_at": "2025-02-27 09:57:18",
+    "goal_id": 5
+  },
+  {
+    "id": 4,
+    "content": "Save every little tiny thing AI gets right because it might not get it right again if you need to redo it.",
+    "type": "negative",
+    "created_at": "2025-02-27 10:06:01",
+    "goal_id": 5
+  },
+  {
+    "id": 5,
+    "content": "Getting noticed with the Pump out of the gym.  Either the pump or my clothes for some reason.",
+    "type": "positive",
+    "created_at": "2025-02-27 18:00:12",
+    "goal_id": 14
+  },
+  {
+    "id": 6,
+    "content": "Held eye contact with that girl, she was the perfect height.  Working out is working.",
+    "type": "positive",
+    "created_at": "2025-02-27 18:00:44",
+    "goal_id": 14
+  },
+  {
+    "id": 7,
+    "content": "Swap the lucozade out for something else like coconut water.  Imagine losing 70g of fat instead.",
+    "type": "negative",
+    "created_at": "2025-02-28 10:12:31",
+    "goal_id": 7
+  },
+  {
+    "id": 8,
+    "content": "Update tips.txt and get it to read it often or it will repeat the same mistakes",
+    "type": "negative",
+    "created_at": "2025-02-28 11:33:46",
+    "goal_id": 5
+  },
+  {
+    "id": 9,
+    "content": "Vegetables like broccoli and spinach really fill you up",
+    "type": "positive",
+    "created_at": "2025-02-28 13:47:59",
+    "goal_id": 7
+  },
+  {
+    "id": 10,
+    "content": "If you didn't do resistance exercise and walked less than 7k steps, you need to eat less carbs period.",
+    "type": "negative",
+    "created_at": "2025-03-01 09:56:37",
+    "goal_id": 7
+  },
+  {
+    "id": 11,
+    "content": "The girl needs to get to know you to feel comfortable. Name, your personality, what you do, maybe ambition, before you ask her out.",
+    "type": "negative",
+    "created_at": "2025-03-01 15:40:38",
+    "goal_id": 16
+  },
+  {
+    "id": 12,
+    "content": "Need to keep the conversation going.  It's your responsibility to do this and keep it interesting.",
+    "type": "negative",
+    "created_at": "2025-03-01 15:42:20",
+    "goal_id": 16
+  },
+  {
+    "id": 13,
+    "content": "Everything must be done in the right order, because if it's not, you take the responsibility for putting her in a position where she has to reject you, even though she might want to take a chance on you if you did it right.",
+    "type": "negative",
+    "created_at": "2025-03-01 15:51:10",
+    "goal_id": 16
+  }
+]

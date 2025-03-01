@@ -1,0 +1,24 @@
+{
+  "backup_date": "2025-03-01T22:55:22.476648",
+  "tables": [
+    "alembic_version",
+    "metrics",
+    "tasks",
+    "experiences",
+    "strategies",
+    "goals",
+    "conversations",
+    "conversation_messages"
+  ],
+  "db_path": "/Users/albert/Documents/Git/ai-todo/backend/sql_app.db",
+  "row_counts": {
+    "alembic_version": 1,
+    "metrics": 11,
+    "tasks": 93,
+    "experiences": 13,
+    "strategies": 7,
+    "goals": 13,
+    "conversations": 4,
+    "conversation_messages": 46
+  }
+}

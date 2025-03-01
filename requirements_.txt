@@ -415,6 +415,7 @@ Homepage is my goals.
     - Connect to Samabnova Cloud API
     - Send a prompt to breakdown task into subtasks
     - Show the user the subtasks and allow them to select and or edit them before accepting list
+    - I want to click the AI button, then a dialog show up, where I can send the prompt request, (there is a default one provided, but I can edit it also). and then receive back a list of subtasks, that I can also edit and select from.  I select the final subtasks and those subtasks will appear under the parent task.
 
 
          
@@ -532,3 +533,96 @@ Goal completion rate: % of goals where at least one target metric is met.
 Milestone completion rate: % of milestones completed per goal.
 Task completion rate: % of todos linked to milestones/metrics successfully completed.
 Efficiency score improvements: % increase in results per time spent.
+
+---
+
+## 🔹 Database Migration & Supabase Integration Plan
+
+### Motivation
+The current SQLite database implementation has served well for development, but for production deployment we need:
+- Robust user authentication and authorization
+- Better scalability and reliability
+- Simplified deployment and maintenance
+
+### Migration Strategy: SQLite to Supabase PostgreSQL
+1. **Database Migration**
+   - Export schema from SQLite to PostgreSQL-compatible format
+   - Set up tables in Supabase with proper relationships
+   - Implement Row Level Security (RLS) policies for data protection
+   - Migrate existing data to Supabase PostgreSQL
+
+2. **Authentication Integration**
+   - Implement Supabase Auth in frontend (Next.js)
+   - Update FastAPI backend to validate Supabase JWT tokens
+   - Replace hardcoded user IDs with authenticated user IDs
+   - Add user registration, login, and profile management
+
+3. **API Adaptation**
+   - Update API endpoints to work with Supabase authentication
+   - Implement proper error handling for auth failures
+   - Ensure all queries respect user ownership of data
+
+### Technical Approach
+- Use Supabase JavaScript client for frontend auth and simple data operations
+- Keep FastAPI backend for complex business logic
+- Use Supabase PostgreSQL connection string for database access from backend
+- Implement proper data validation and security at all layers
+
+### Timeline
+- Phase 1: Set up Supabase project and migrate schema (1 week)
+- Phase 2: Implement authentication and update API endpoints (1 week)
+- Phase 3: Migrate data and test thoroughly (1 week)
+- Phase 4: Deploy to production with Supabase backend (1 week)
+
+---
+
+## 🔹 Realistic Supabase Migration Approach
+
+### Proof of Concept Phase (2-3 hours)
+- Set up Supabase project with proper settings
+- Create core tables (users, goals, tasks) in Supabase
+- Implement basic Supabase Auth in frontend
+- Add JWT validation to backend
+- Test one complete feature flow (e.g., creating and viewing tasks)
+
+### Complete Migration Sprint (2-3 days)
+1. **Schema Migration (3-4 hours)**
+   - Recreate all tables with proper relationships
+   - Set up indexes and constraints
+   - Implement comprehensive Row Level Security policies
+
+2. **Auth Integration (2-3 hours)**
+   - Complete Supabase Auth implementation
+   - Add user management features
+   - Update protected routes in frontend
+
+3. **Data Migration (2-3 hours)**
+   - Export all data from SQLite
+   - Transform data to fit Supabase schema
+   - Import data to Supabase PostgreSQL
+   - Verify data integrity
+
+4. **API Adaptation (4-6 hours)**
+   - Update all API endpoints to work with Supabase auth
+   - Ensure all queries respect user data ownership
+   - Add proper error handling
+
+5. **Testing & Fixes (3-4 hours)**
+   - Test all application features
+   - Fix any issues or regressions
+   - Ensure performance is acceptable
+
+### Critical Components
+- Data integrity across related tables
+- Authentication flow and user experience
+- Security policies to protect user data
+- API compatibility with frontend
+- Performance of complex queries
+
+### Development Strategy
+- Maintain parallel systems during migration
+- Use feature parity checklist to ensure nothing is missed
+- Implement automated tests for critical paths
+- Document all changes for future reference
+
+This timeline acknowledges the complexity of a complete migration while providing a structured approach to ensure all functionality works correctly in the new Supabase environment.

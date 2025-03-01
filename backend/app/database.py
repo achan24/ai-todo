@@ -1,13 +1,18 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# For MVP, we'll use SQLite. Later we can switch to PostgreSQL
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+# Get database URL from environment variables
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# Check if using PostgreSQL (Supabase)
+if DATABASE_URL.startswith("postgresql"):
+    engine = create_engine(DATABASE_URL)
+else:
+    # Fallback to SQLite for development
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
