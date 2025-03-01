@@ -37,6 +37,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditTaskDialog from '../../../components/EditTaskDialog';
 import TaskBreakdownDialog from '../../../components/TaskBreakdownDialog';
+import ConversationList from '@/components/ConversationList';
 import config from '@/config/config';
 
 interface Task {
@@ -93,6 +94,13 @@ interface Strategy {
   goal_id: number;
 }
 
+interface Conversation {
+  id: number;
+  content: string;
+  created_at: string;
+  goal_id: number;
+}
+
 interface Goal {
   id: number;
   title: string;
@@ -101,6 +109,7 @@ interface Goal {
   experiences: Experience[];
   strategies: Strategy[];
   tasks: Task[];
+  conversations: Conversation[];
   current_strategy_id: number | null;
 }
 
@@ -439,7 +448,8 @@ export default function GoalPage() {
         metrics: data.metrics || [], // Ensure metrics is always an array
         experiences: data.experiences || [], // Ensure experiences is always an array
         strategies: data.strategies || [], // Ensure strategies is always an array
-        tasks: data.tasks || [] // Ensure tasks is always an array
+        tasks: data.tasks || [], // Ensure tasks is always an array
+        conversations: data.conversations || [] // Ensure conversations is always an array
       });
 
       const tasksResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`);
@@ -1422,6 +1432,31 @@ export default function GoalPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Conversations Section */}
+          <div className="mb-8">
+            <ConversationList
+              goalId={params.id}
+              goalTitle={goal.title}
+              goalDescription={goal.description}
+              conversations={goal.conversations}
+              onConversationAdded={(conversation) => {
+                setGoal(prev => ({
+                  ...prev!,
+                  conversations: [
+                    ...prev!.conversations.filter(c => c.id !== conversation.id),
+                    conversation
+                  ]
+                }));
+              }}
+              onConversationDeleted={(conversationId) => {
+                setGoal(prev => ({
+                  ...prev!,
+                  conversations: prev!.conversations.filter(c => c.id !== conversationId)
+                }));
+              }}
+            />
           </div>
 
           {/* Quick Add Task */}

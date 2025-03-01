@@ -300,3 +300,34 @@ Common Gotchas:
     - Follow established naming conventions and patterns
     - Reuse existing components and utilities where possible
     - Keep consistent with existing UI/UX patterns
+
+23. FastAPI Schema and Data Visibility
+--------------------------------
+If data appears to be "not saving" but the database tables and relationships are correct:
+- Check the Pydantic schemas in schemas/*.py
+- Make sure all relationships are defined in the schema classes
+- Example: If Goal has conversations in SQLAlchemy but not in Pydantic schema:
+  ```python
+  # models/goal.py (SQLAlchemy)
+  conversations = relationship("Conversation", back_populates="goal")
+  
+  # schemas/goal.py (Pydantic)
+  class Goal(GoalBase):
+      # Missing! Data won't show in API even if saved
+      conversations: List[Conversation] = []
+  ```
+- The data may be saving correctly but not appearing in API responses
+- Always check both database models AND Pydantic schemas when data seems missing
+
+24. Alembic Migration Organization
+--------------------------------
+- Keep ALL migration files in alembic/versions/ directory
+- NEVER leave migration files in the root backend directory
+- Migration files follow the pattern: <revision_id>_<description>.py
+- Each migration file represents a specific database schema change
+- Migration files form a chain through their revision history
+- Don't delete migration files unless you're sure you want to lose rollback capability
+- If you accidentally create migrations in the wrong place:
+  1. Check if they're duplicates of existing migrations in alembic/versions/
+  2. If unique, move them to alembic/versions/
+  3. If duplicates, delete them to avoid confusion

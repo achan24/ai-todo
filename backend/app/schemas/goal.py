@@ -6,6 +6,7 @@ import json
 from .task import Task
 from .experience import Experience
 from .strategy import Strategy
+from .conversation import Conversation
 
 class MetricType(str, Enum):
     target = "target"
@@ -89,6 +90,7 @@ class Goal(GoalBase):
     metrics: List[Metric] = []
     experiences: List[Experience] = []
     strategies: List[Strategy] = []
+    conversations: List[Conversation] = []
     subgoals: List['Goal'] = []
     current_strategy_id: int | None = None
 
