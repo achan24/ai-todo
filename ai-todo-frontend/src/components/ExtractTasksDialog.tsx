@@ -38,17 +38,44 @@ export default function ExtractTasksDialog({
 }: ExtractTasksDialogProps) {
   // Parse initial tasks from AI message
   const parseTasksFromMessage = (message: string): ExtractedTask[] => {
-    return message.split('\n')
-      .filter(line => line.trim().startsWith('-'))
-      .map(line => ({
-        title: line.substring(1).trim(),
-        selected: true
-      }));
+    try {
+      // First try to find lines starting with '-' or '•'
+      const tasks = message.split('\n')
+        .filter(line => {
+          const trimmed = line.trim();
+          return trimmed.startsWith('-') || trimmed.startsWith('•');
+        })
+        .map(line => ({
+          title: line.replace(/^[-•]\s*/, '').trim(), // Remove bullet and whitespace
+          selected: true
+        }))
+        .filter(task => task.title.length > 0); // Remove empty tasks
+      
+      // If no tasks found, try to find numbered lists (1., 2., etc)
+      if (tasks.length === 0) {
+        const numberedTasks = message.split('\n')
+          .filter(line => /^\d+\.\s/.test(line.trim()))
+          .map(line => ({
+            title: line.replace(/^\d+\.\s*/, '').trim(),
+            selected: true
+          }))
+          .filter(task => task.title.length > 0);
+        
+        return numberedTasks;
+      }
+      
+      return tasks;
+    } catch (error) {
+      console.error('Error parsing tasks:', error);
+      return [];
+    }
   };
 
-  const [tasks, setTasks] = useState<ExtractedTask[]>(() => 
-    parseTasksFromMessage(aiMessage)
-  );
+  const [tasks, setTasks] = useState<ExtractedTask[]>(() => {
+    const parsedTasks = parseTasksFromMessage(aiMessage);
+    console.log('Parsed tasks:', parsedTasks);
+    return parsedTasks;
+  });
   
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');

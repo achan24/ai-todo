@@ -59,7 +59,7 @@ export default function TaskBreakdownDialog({ open, task, onClose, onAddSubtasks
 
     try {
       setLoading(true);
-      setError('');
+      setError('');  // Clear any previous errors
 
       // Add user message
       const newMessages = [...messages, { role: 'user', content: inputMessage }];
@@ -77,17 +77,22 @@ export default function TaskBreakdownDialog({ open, task, onClose, onAddSubtasks
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
       const data = await response.json();
       
-      // Add AI's response
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.response
-      }]);
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to get response');
+      }
+
+      // Only add AI's response if we got one
+      if (data.response) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.response
+        }]);
+        setError(''); // Clear any errors since we got a valid response
+      } else {
+        setError('No response received from AI');
+      }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get response';
@@ -99,6 +104,7 @@ export default function TaskBreakdownDialog({ open, task, onClose, onAddSubtasks
   };
 
   const handleExtractTasks = () => {
+    setError(''); // Clear any previous errors
     // Open extract dialog with last AI message
     const lastAiMessage = [...messages].reverse().find(m => m.role === 'assistant');
     if (lastAiMessage) {

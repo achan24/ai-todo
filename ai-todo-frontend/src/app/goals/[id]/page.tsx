@@ -701,8 +701,56 @@ export default function GoalPage() {
         throw new Error('Failed to update task');
       }
 
-      // Refresh tasks to show new hierarchy
-      fetchGoalData();
+      // Update tasks state locally instead of fetching all data again
+      setTasks(prevTasks => {
+        const updatedTasks = [...prevTasks];
+        
+        // Helper function to find and remove task from its current position
+        const findAndRemoveTask = (tasks: Task[]): [Task[], Task | null] => {
+          for (let i = 0; i < tasks.length; i++) {
+            if (tasks[i].id === draggedTaskId) {
+              const [removedTask] = tasks.splice(i, 1);
+              return [tasks, removedTask];
+            }
+            if (tasks[i].subtasks) {
+              const [updatedSubtasks, removedTask] = findAndRemoveTask(tasks[i].subtasks);
+              if (removedTask) {
+                tasks[i].subtasks = updatedSubtasks;
+                return [tasks, removedTask];
+              }
+            }
+          }
+          return [tasks, null];
+        };
+
+        // Helper function to add task to its new parent
+        const addTaskToParent = (tasks: Task[], task: Task): boolean => {
+          for (let i = 0; i < tasks.length; i++) {
+            if (tasks[i].id === targetTaskId) {
+              tasks[i].subtasks = tasks[i].subtasks || [];
+              tasks[i].subtasks.push({
+                ...task,
+                parent_id: targetTaskId
+              });
+              return true;
+            }
+            if (tasks[i].subtasks && addTaskToParent(tasks[i].subtasks, task)) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        // Remove task from its current position
+        const [tasksWithoutDragged, removedTask] = findAndRemoveTask(updatedTasks);
+        if (removedTask) {
+          // Add task to its new parent
+          addTaskToParent(tasksWithoutDragged, removedTask);
+        }
+
+        return tasksWithoutDragged;
+      });
+
     } catch (error) {
       console.error('Error updating task:', error);
     }
