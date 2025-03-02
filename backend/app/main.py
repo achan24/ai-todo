@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .routers import tasks, goals, metrics, experiences, strategies, conversations
 from .database import engine, Base
 from .core.config import settings
+from .auth import get_current_user, User
 import logging
 
 # Configure logging

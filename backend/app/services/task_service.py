@@ -8,7 +8,7 @@ import json
 from ..models import Task, Metric
 from ..schemas.task import TaskCreate, TaskUpdate, TaskWithAIRecommendation
 
-async def get_tasks(db: Session, user_id: int, skip: int = 0, limit: int = 100, completed: Optional[bool] = None) -> List[Task]:
+async def get_tasks(db: Session, user_id: str, skip: int = 0, limit: int = 100, completed: Optional[bool] = None) -> List[Task]:
     """Get all tasks for a user, with proper subtask relationships"""
     query = db.query(Task).filter(
         Task.user_id == user_id,
@@ -25,7 +25,7 @@ async def get_tasks(db: Session, user_id: int, skip: int = 0, limit: int = 100, 
             task.tags = []
     return tasks
 
-async def create_task(db: Session, task: TaskCreate, user_id: int) -> Task:
+async def create_task(db: Session, task: TaskCreate, user_id: str) -> Task:
     """Create a new task"""
     db_task = Task(
         title=task.title,
@@ -43,7 +43,7 @@ async def create_task(db: Session, task: TaskCreate, user_id: int) -> Task:
     db.refresh(db_task)
     return db_task
 
-async def get_task(db: Session, task_id: int, user_id: int) -> Task:
+async def get_task(db: Session, task_id: int, user_id: str) -> Task:
     task = db.query(Task).filter(Task.id == task_id, Task.user_id == user_id).first()
     if not task:
         raise HTTPException(
@@ -54,7 +54,7 @@ async def get_task(db: Session, task_id: int, user_id: int) -> Task:
         task.tags = []
     return task
 
-async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_id: int) -> Task:
+async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_id: str) -> Task:
     """Update a task"""
     db_task = await get_task(db, task_id, user_id)
     
@@ -126,7 +126,7 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
     db.refresh(db_task)
     return db_task
 
-async def delete_task(db: Session, task_id: int, user_id: int) -> None:
+async def delete_task(db: Session, task_id: int, user_id: str) -> None:
     """Delete a task and all its subtasks"""
     task = db.query(Task).filter(Task.id == task_id, Task.user_id == user_id).first()
     if not task:
@@ -135,7 +135,7 @@ async def delete_task(db: Session, task_id: int, user_id: int) -> None:
     db.delete(task)  # This will cascade to subtasks due to relationship settings
     db.commit()
 
-def analyze_completion_patterns(db: Session, user_id: int) -> dict:
+def analyze_completion_patterns(db: Session, user_id: str) -> dict:
     """Analyze historical task completion patterns to learn user preferences"""
     completed_tasks = db.query(Task).filter(
         Task.user_id == user_id,
@@ -226,7 +226,7 @@ def calculate_task_priority_score(task: Task, completion_patterns: dict, current
     
     return score
 
-async def get_next_task(db: Session, user_id: int) -> TaskWithAIRecommendation:
+async def get_next_task(db: Session, user_id: str) -> TaskWithAIRecommendation:
     """Get AI recommended next task based on multiple factors and learning"""
     # Get all incomplete tasks
     tasks = db.query(Task).filter(

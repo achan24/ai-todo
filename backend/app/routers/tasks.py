@@ -11,6 +11,7 @@ from ..database import get_db
 from ..services import task_service, ai_service
 from ..schemas.task import Task, TaskCreate, TaskUpdate, TaskWithAIRecommendation
 from ..models.goal import Metric
+from ..auth import get_current_user, User
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -24,12 +25,13 @@ async def get_tasks(
     skip: int = 0,
     limit: int = 100,
     completed: Optional[bool] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get all tasks for the current user"""
     try:
         logger.info("Fetching tasks with params: skip=%d, limit=%d, completed=%s", skip, limit, completed)
-        tasks = await task_service.get_tasks(db, user_id=1, skip=skip, limit=limit, completed=completed)
+        tasks = await task_service.get_tasks(db, skip=skip, limit=limit, completed=completed, user_id=current_user.id)
         
         # Ensure subtasks and tags are never None
         for task in tasks:
@@ -46,11 +48,11 @@ async def get_tasks(
         )
 
 @router.post("/", response_model=Task)
-async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
+async def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Create a new task"""
     try:
         logger.info("Creating new task: %s", task.title)
-        return await task_service.create_task(db, task, user_id=1)
+        return await task_service.create_task(db, task, user_id=current_user.id)
     except Exception as e:
         logger.error("Error creating task: %s", str(e), exc_info=True)
         return JSONResponse(
@@ -59,11 +61,11 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         )
 
 @router.get("/{task_id}", response_model=Task)
-async def get_task(task_id: int, db: Session = Depends(get_db)):
+async def get_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get a specific task by ID"""
     try:
         logger.info("Fetching task with id: %d", task_id)
-        task = await task_service.get_task(db, task_id, user_id=1)
+        task = await task_service.get_task(db, task_id, user_id=current_user.id)
         task.subtasks = task.subtasks or []
         task.tags = task.tags or []
         return task
@@ -75,11 +77,11 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
         )
 
 @router.put("/{task_id}", response_model=Task)
-async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_db)):
+async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Update a task"""
     try:
         logger.info("Updating task %d", task_id)
-        return await task_service.update_task(db, task_id, task, user_id=1)
+        return await task_service.update_task(db, task_id, task, user_id=current_user.id)
     except Exception as e:
         logger.error("Error updating task %d: %s", task_id, str(e), exc_info=True)
         return JSONResponse(
@@ -88,11 +90,11 @@ async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_
         )
 
 @router.delete("/{task_id}")
-async def delete_task(task_id: int, db: Session = Depends(get_db)):
+async def delete_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Delete a task"""
     try:
         logger.info("Deleting task %d", task_id)
-        await task_service.delete_task(db, task_id, user_id=1)
+        await task_service.delete_task(db, task_id, user_id=current_user.id)
         return {"message": "Task deleted successfully"}
     except Exception as e:
         logger.error("Error deleting task %d: %s", task_id, str(e), exc_info=True)
@@ -102,11 +104,11 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
         )
 
 @router.get("/next/recommendation", response_model=TaskWithAIRecommendation)
-async def get_next_task_recommendation(db: Session = Depends(get_db)):
+async def get_next_task_recommendation(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get AI recommended next task"""
     try:
         logger.info("Getting next task recommendation")
-        return await task_service.get_next_task(db, user_id=1)
+        return await task_service.get_next_task(db, user_id=current_user.id)
     except Exception as e:
         logger.error("Error getting task recommendation: %s", str(e), exc_info=True)
         return JSONResponse(
@@ -118,12 +120,13 @@ async def get_next_task_recommendation(db: Session = Depends(get_db)):
 async def get_task_breakdown(
     task_id: int,
     request: TaskBreakdownRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get AI-generated breakdown of a task into subtasks"""
     try:
         logger.info(f"Getting breakdown for task {task_id}")
-        task = await task_service.get_task(db, task_id, user_id=1)  # Default user_id=1 for now
+        task = await task_service.get_task(db, task_id, user_id=current_user.id)  # Default user_id=1 for now
         if not task:
             logger.error(f"Task {task_id} not found")
             raise HTTPException(status_code=404, detail="Task not found")

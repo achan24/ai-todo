@@ -3,6 +3,8 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from enum import Enum
 from typing import Optional
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 from ..database import Base
 
@@ -22,7 +24,7 @@ class Task(Base):
     due_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
-    user_id = Column(Integer, default=1)
+    user_id = Column(String, nullable=False)  # Use String for UUID compatibility with both PostgreSQL and SQLite
     parent_id = Column(Integer, ForeignKey('tasks.id', ondelete='CASCADE'), nullable=True)
     estimated_minutes = Column(Integer, nullable=True)
     goal_id = Column(Integer, ForeignKey('goals.id', ondelete='SET NULL'), nullable=True)
