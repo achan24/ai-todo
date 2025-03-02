@@ -91,6 +91,11 @@ def prepare_goal_for_response(goal):
         except Exception as e:
             logger.error(f"Error getting subgoals for goal {goal.id}: {str(e)}")
         
+        # Convert UUID to string if needed
+        user_id = goal.user_id
+        if hasattr(user_id, 'hex'):  # Check if it's a UUID object
+            user_id = str(user_id)
+        
         # Create a dictionary representation of the goal
         goal_dict = {
             "id": goal.id,
@@ -99,7 +104,7 @@ def prepare_goal_for_response(goal):
             "priority": goal.priority,
             "created_at": goal.created_at,
             "updated_at": goal.updated_at,
-            "user_id": goal.user_id,
+            "user_id": user_id,
             "parent_id": goal.parent_id,
             "current_strategy_id": goal.current_strategy_id,
             "tasks": tasks,

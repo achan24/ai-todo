@@ -92,7 +92,14 @@ class Goal(GoalBase):
     strategies: List[Strategy] = []
     conversations: List[Conversation] = []
     subgoals: List['Goal'] = []
-    current_strategy_id: int | None = None
+    current_strategy_id: Optional[int] = None
 
     class Config:
         from_attributes = True
+        
+        @classmethod
+        def from_orm(cls, obj):
+            # Convert UUID to string if needed
+            if hasattr(obj, 'user_id') and hasattr(obj.user_id, 'hex'):
+                obj.user_id = str(obj.user_id)
+            return super().from_orm(obj)

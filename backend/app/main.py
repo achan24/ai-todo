@@ -33,6 +33,13 @@ def create_app():
         origins = settings.BACKEND_CORS_ORIGINS
         logger.info(f"Using CORS origins from settings: {origins}")
     
+    # Add wildcard for development/debugging
+    if "*" not in origins:
+        origins.append("*")
+        logger.warning("Added wildcard (*) to CORS origins for debugging - REMOVE IN PRODUCTION")
+    
+    logger.info(f"Final CORS origins: {origins}")
+    
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
