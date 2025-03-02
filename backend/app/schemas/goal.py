@@ -83,7 +83,7 @@ class GoalUpdate(BaseModel):
 
 class Goal(GoalBase):
     id: int
-    user_id: int
+    user_id: str  # Changed from int to str to match Supabase UUID
     created_at: datetime
     updated_at: datetime
     tasks: List[Task] = []
