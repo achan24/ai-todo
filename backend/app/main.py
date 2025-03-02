@@ -16,9 +16,16 @@ def create_app():
     app = FastAPI()
 
     # Configure CORS
+    origins = settings.BACKEND_CORS_ORIGINS
+    # Ensure the Render frontend domain is included
+    if "https://ai-todoo.onrender.com" not in origins:
+        origins.append("https://ai-todoo.onrender.com")
+    
+    logger.info(f"CORS origins: {origins}")
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -34,6 +41,11 @@ def create_app():
     app.include_router(experiences.router, prefix="/api", tags=["experiences"])
     app.include_router(strategies.router, prefix="/api", tags=["strategies"])
     app.include_router(conversations.router, prefix="/api", tags=["conversations"])
+    
+    # Add a test endpoint for CORS
+    @app.get("/api/cors-test")
+    async def cors_test():
+        return {"message": "CORS is working!"}
     
     # Exception handler
     @app.exception_handler(Exception)
