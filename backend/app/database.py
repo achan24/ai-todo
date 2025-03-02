@@ -2,6 +2,10 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Get database URL from environment variables
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
@@ -26,3 +30,13 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_fresh_db():
+    """Get a fresh database session that can be used outside of FastAPI dependency injection"""
+    db = SessionLocal()
+    try:
+        return db
+    except Exception as e:
+        logger.error(f"Error creating fresh database session: {str(e)}")
+        db.close()
+        raise

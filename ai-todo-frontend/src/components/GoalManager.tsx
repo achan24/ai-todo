@@ -522,119 +522,6 @@ export default function GoalManager() {
     }
   }, [editingGoal]);
 
-  const renderGoal = (goal: Goal, level = 0) => {
-    const badges = calculateBadges(goal);
-    const hasSubgoals = goal.subgoals && goal.subgoals.length > 0;
-    const isCollapsed = collapsedGoals.has(goal.id);
-
-    return (
-      <div key={goal.id}>
-        <div 
-          className={`
-            ${
-              level === 0 
-                ? `px-4 py-4 sm:px-6 mb-4 rounded-lg border border-gray-200 shadow-sm` 
-                : 'px-3 py-2 sm:px-4 mb-2 rounded border border-gray-100'
-            }
-            hover:shadow-md transition-shadow bg-white
-          `}
-          style={level > 0 ? { marginLeft: `${level * 2.5}rem` } : undefined}
-          draggable
-          onDragStart={(e) => handleDragStart(e, goal.id)}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, goal.id)}
-          onClick={() => handleGoalClick(goal.id)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {hasSubgoals && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleCollapsed(goal.id);
-                  }}
-                  className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-700"
-                >
-                  {isCollapsed ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 010 1.08l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              )}
-              <div>
-                <div className="flex items-center space-x-2">
-                  <Typography>
-                    {goal.title}
-                  </Typography>
-                  <div className="flex gap-1">
-                    {badges.map((badge, index) => (
-                      <span key={index} className="text-lg">{badge}</span>
-                    ))}
-                  </div>
-                  {goal.deadline && (
-                    <div className="flex items-center text-gray-500 text-sm">
-                      <ClockIcon className="h-4 w-4 mr-1" />
-                      {new Date(goal.deadline).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-                {goal.description && (
-                  <Typography variant="body2" color="text.secondary">
-                    {goal.description}
-                  </Typography>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {goal.priority && (
-                <Chip 
-                  size="small"
-                  label={goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1)}
-                  color={goal.priority === 'high' ? 'error' : goal.priority === 'medium' ? 'warning' : 'default'}
-                />
-              )}
-              {goal.progress !== undefined && (
-                <Typography variant="body2" color="text.secondary">
-                  {goal.progress}%
-                </Typography>
-              )}
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingGoal(goal);
-                  setShowEditDialog(true);
-                }}
-                className="text-gray-600 hover:text-blue-600"
-                size="small"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </IconButton>
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setGoalToDelete(goal);
-                  setShowDeleteConfirmation(true);
-                }}
-                className="text-red-600"
-                size="small"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </IconButton>
-            </div>
-          </div>
-        </div>
-        {!isCollapsed && goal.subgoals && goal.subgoals.map(subgoal => renderGoal(subgoal, level + 1))}
-      </div>
-    );
-  };
-
   return (
     <Container maxWidth="lg" className="py-8">
       <Box className="bg-white rounded-xl shadow-sm p-6">
@@ -656,7 +543,30 @@ export default function GoalManager() {
           {goals
             .filter(goal => !goal.parent_id)
             .map(goal => (
-              renderGoal(goal)
+              <GoalItem 
+                key={goal.id} 
+                goal={goal} 
+                level={0}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onEdit={(goalId) => {
+                  const goal = goals.find(g => g.id === goalId);
+                  if (goal) {
+                    setEditingGoal(goal);
+                    setShowEditDialog(true);
+                  }
+                }}
+                onDelete={(goalId) => {
+                  const goal = goals.find(g => g.id === goalId);
+                  if (goal) {
+                    setGoalToDelete(goal);
+                    setShowDeleteConfirmation(true);
+                  }
+                }}
+                onClick={handleGoalClick}
+              />
             ))}
         </List>
       </Box>

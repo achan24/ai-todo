@@ -54,49 +54,12 @@ def prepare_metrics_for_response(metrics):
 def prepare_goal_for_response(goal):
     """Safely prepare a goal for response, handling any related object errors"""
     try:
-        # Access related objects safely
-        tasks = []
-        try:
-            tasks = goal.tasks
-        except Exception as e:
-            logger.error(f"Error getting tasks for goal {goal.id}: {str(e)}")
-        
-        metrics = []
-        try:
-            metrics = goal.metrics
-        except Exception as e:
-            logger.error(f"Error getting metrics for goal {goal.id}: {str(e)}")
-        
-        experiences = []
-        try:
-            experiences = goal.experiences
-        except Exception as e:
-            logger.error(f"Error getting experiences for goal {goal.id}: {str(e)}")
-        
-        strategies = []
-        try:
-            strategies = goal.strategies
-        except Exception as e:
-            logger.error(f"Error getting strategies for goal {goal.id}: {str(e)}")
-        
-        conversations = []
-        try:
-            conversations = goal.conversations
-        except Exception as e:
-            logger.error(f"Error getting conversations for goal {goal.id}: {str(e)}")
-        
-        subgoals = []
-        try:
-            subgoals = goal.subgoals
-        except Exception as e:
-            logger.error(f"Error getting subgoals for goal {goal.id}: {str(e)}")
-        
         # Convert UUID to string if needed
         user_id = goal.user_id
         if hasattr(user_id, 'hex'):  # Check if it's a UUID object
             user_id = str(user_id)
         
-        # Create a dictionary representation of the goal
+        # Create a dictionary representation of the goal with minimal info first
         goal_dict = {
             "id": goal.id,
             "title": goal.title,
@@ -107,13 +70,44 @@ def prepare_goal_for_response(goal):
             "user_id": user_id,
             "parent_id": goal.parent_id,
             "current_strategy_id": goal.current_strategy_id,
-            "tasks": tasks,
-            "metrics": metrics,
-            "experiences": experiences,
-            "strategies": strategies,
-            "conversations": conversations,
-            "subgoals": subgoals
+            "tasks": [],
+            "metrics": [],
+            "experiences": [],
+            "strategies": [],
+            "conversations": [],
+            "subgoals": []
         }
+        
+        # Now try to add related objects one by one, catching exceptions for each
+        try:
+            goal_dict["tasks"] = goal.tasks
+        except Exception as e:
+            logger.error(f"Error getting tasks for goal {goal.id}: {str(e)}")
+        
+        try:
+            goal_dict["metrics"] = goal.metrics
+        except Exception as e:
+            logger.error(f"Error getting metrics for goal {goal.id}: {str(e)}")
+        
+        try:
+            goal_dict["experiences"] = goal.experiences
+        except Exception as e:
+            logger.error(f"Error getting experiences for goal {goal.id}: {str(e)}")
+        
+        try:
+            goal_dict["strategies"] = goal.strategies
+        except Exception as e:
+            logger.error(f"Error getting strategies for goal {goal.id}: {str(e)}")
+        
+        try:
+            goal_dict["conversations"] = goal.conversations
+        except Exception as e:
+            logger.error(f"Error getting conversations for goal {goal.id}: {str(e)}")
+        
+        try:
+            goal_dict["subgoals"] = goal.subgoals
+        except Exception as e:
+            logger.error(f"Error getting subgoals for goal {goal.id}: {str(e)}")
         
         return goal_dict
     except Exception as e:
@@ -167,6 +161,7 @@ async def get_goals(
             except Exception as e:
                 logger.error(f"Error preparing goal {goal.id}: {str(e)}")
                 # Skip this goal if there's an error
+                db.rollback()  # Rollback transaction for this specific error
                 continue
         
         return prepared_goals
@@ -237,9 +232,33 @@ async def read_goal(
         if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
-        # Prepare metrics for response
-        goal = prepare_goal_for_response(goal)
-        return goal
+        # Prepare goal for response in a separate transaction if needed
+        try:
+            goal_data = prepare_goal_for_response(goal)
+            return goal_data
+        except Exception as e:
+            # If preparing the goal fails, rollback and try again with minimal data
+            db.rollback()
+            logger.error(f"Error preparing goal {goal.id} with full data: {str(e)}")
+            
+            # Return minimal goal data
+            return {
+                "id": goal.id,
+                "title": goal.title,
+                "description": goal.description,
+                "priority": goal.priority,
+                "created_at": goal.created_at,
+                "updated_at": goal.updated_at,
+                "user_id": goal_user_id,
+                "parent_id": goal.parent_id,
+                "current_strategy_id": goal.current_strategy_id,
+                "tasks": [],
+                "metrics": [],
+                "experiences": [],
+                "strategies": [],
+                "conversations": [],
+                "subgoals": []
+            }
     except Exception as e:
         # Rollback the transaction in case of error
         db.rollback()
