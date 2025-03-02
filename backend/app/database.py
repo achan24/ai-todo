@@ -12,13 +12,24 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 
 # Check if using PostgreSQL (Supabase)
 if DATABASE_URL.startswith("postgresql"):
-    # Add SSL mode for PostgreSQL connections
+    # Add SSL mode for PostgreSQL connections if not already present
     if "sslmode=" not in DATABASE_URL:
         DATABASE_URL += "?sslmode=require"
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    
+    # Create engine with connection pooling settings
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,     # Check connection before using
+        pool_recycle=300,       # Recycle connections every 5 minutes
+        pool_size=5,            # Base pool size
+        max_overflow=10,        # Allow up to 10 additional connections
+        connect_args={"connect_timeout": 10}  # Connection timeout in seconds
+    )
+    logger.info("Using PostgreSQL database with connection pooling")
 else:
     # Fallback to SQLite for development
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+    logger.info("Using SQLite database")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

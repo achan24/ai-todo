@@ -7,6 +7,7 @@ from .core.config import settings
 from .auth import get_current_user, User
 import logging
 import os
+import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,10 +34,11 @@ def create_app():
         origins = settings.BACKEND_CORS_ORIGINS
         logger.info(f"Using CORS origins from settings: {origins}")
     
-    # Add wildcard for development/debugging
-    if "*" not in origins:
+    # Add wildcard for development only
+    is_development = os.getenv("ENVIRONMENT", "development").lower() == "development"
+    if is_development and "*" not in origins:
         origins.append("*")
-        logger.warning("Added wildcard (*) to CORS origins for debugging - REMOVE IN PRODUCTION")
+        logger.warning("Added wildcard (*) to CORS origins for development environment only")
     
     logger.info(f"Final CORS origins: {origins}")
     
@@ -63,6 +65,16 @@ def create_app():
     @app.get("/api/cors-test")
     async def cors_test():
         return {"message": "CORS is working!"}
+        
+    # Add health check endpoint
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint for monitoring and deployment platforms"""
+        return {
+            "status": "ok",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "version": os.getenv("APP_VERSION", "development")
+        }
     
     # Exception handler
     @app.exception_handler(Exception)

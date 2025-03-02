@@ -1,17 +1,16 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Enum as SQLEnum, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, JSON
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
-from enum import Enum
 from typing import Optional
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 
 from ..database import Base
 
-class PriorityEnum(str, Enum):
-    high = "high"
-    medium = "medium"
-    low = "low"
+# Priority constants
+PRIORITY_HIGH = 1
+PRIORITY_MEDIUM = 2
+PRIORITY_LOW = 3
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -20,7 +19,7 @@ class Task(Base):
     title = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     completed = Column(Boolean, default=False, nullable=False)
-    priority = Column(SQLEnum(PriorityEnum), default=PriorityEnum.medium)
+    priority = Column(Integer, default=PRIORITY_MEDIUM)  # Store as integer: 1=high, 2=medium, 3=low
     due_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -45,17 +44,26 @@ class Task(Base):
     @property
     def priority_safe(self):
         """Return the priority as a string, handling numeric values"""
+        # Map numeric priorities to string values
+        priority_map = {
+            PRIORITY_HIGH: "high",
+            PRIORITY_MEDIUM: "medium",
+            PRIORITY_LOW: "low"
+        }
+        
         if self.priority is None:
-            return PriorityEnum.medium
+            return "medium"
+            
+        if isinstance(self.priority, int):
+            return priority_map.get(self.priority, "medium")
+            
         if isinstance(self.priority, str):
-            return self.priority
-        if isinstance(self.priority, int) or self.priority.isdigit():
-            # Map numeric priorities to enum values
-            priority_map = {
-                1: PriorityEnum.high,
-                2: PriorityEnum.medium,
-                3: PriorityEnum.low
-            }
-            num_priority = int(self.priority)
-            return priority_map.get(num_priority, PriorityEnum.medium)
-        return self.priority
+            try:
+                # Try to convert string to int
+                num_priority = int(self.priority)
+                return priority_map.get(num_priority, "medium")
+            except ValueError:
+                # If it's already a string value
+                return self.priority
+                
+        return "medium"
