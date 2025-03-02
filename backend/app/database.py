@@ -8,7 +8,10 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 
 # Check if using PostgreSQL (Supabase)
 if DATABASE_URL.startswith("postgresql"):
-    engine = create_engine(DATABASE_URL)
+    # Add SSL mode for PostgreSQL connections
+    if "sslmode=" not in DATABASE_URL:
+        DATABASE_URL += "?sslmode=require"
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     # Fallback to SQLite for development
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
