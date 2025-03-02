@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import config from '../config'; // Assuming config is in a separate file
 
 interface Metric {
   id: number;
@@ -24,7 +25,7 @@ export default function ContributionDialog({ isOpen, onClose, onSubmit, metricId
 
   useEffect(() => {
     if (metricId) {
-      fetch(`http://localhost:8005/api/metrics/${metricId}`)
+      fetch(`${config.apiUrl}/api/metrics/${metricId}`)
         .then(res => res.json())
         .then(data => setMetric(data))
         .catch(err => console.error('Error fetching metric:', err));

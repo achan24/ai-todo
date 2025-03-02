@@ -16,6 +16,7 @@ import { Task } from '../types/task';
 import SendIcon from '@mui/icons-material/Send';
 import ExtractIcon from '@mui/icons-material/CallSplit';
 import ExtractTasksDialog from './ExtractTasksDialog';
+import config from '../config';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -66,7 +67,7 @@ export default function TaskBreakdownDialog({ open, task, onClose, onAddSubtasks
       setMessages(newMessages);
       setInputMessage('');
 
-      const response = await fetch(`http://localhost:8005/api/tasks/${task.id}/breakdown`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${task.id}/breakdown`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

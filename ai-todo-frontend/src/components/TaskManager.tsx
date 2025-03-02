@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/solid';
 import EditTaskDialog from './EditTaskDialog';
 import ContributionDialog from './ContributionDialog';
+import config from '../config';
 
 interface Task {
   id: number;
@@ -186,7 +187,7 @@ export default function TaskManager() {
   const fetchTasks = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:8005/api/tasks');
+      const response = await fetch(`${config.apiUrl}/api/tasks`);
       if (!response.ok) {
         throw new Error('Failed to fetch tasks');
       }
@@ -214,7 +215,7 @@ export default function TaskManager() {
     if (!newTaskTitle.trim()) return;
 
     try {
-      const response = await fetch('http://localhost:8005/api/tasks', {
+      const response = await fetch(`${config.apiUrl}/api/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +253,7 @@ export default function TaskManager() {
       }
 
       // Otherwise just toggle completion
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}/complete`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -277,7 +278,7 @@ export default function TaskManager() {
     if (!completingTask) return;
 
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${completingTask.id}/complete`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${completingTask.id}/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -292,7 +293,7 @@ export default function TaskManager() {
         ));
 
         // Fetch updated metric data
-        const metricResponse = await fetch(`http://localhost:8005/api/metrics/${contribution.metric_id}`);
+        const metricResponse = await fetch(`${config.apiUrl}/api/metrics/${contribution.metric_id}`);
         if (metricResponse.ok) {
           const updatedMetric = await metricResponse.json();
           // Update the metric in any components that need it
@@ -311,7 +312,7 @@ export default function TaskManager() {
   // Update task
   const handleUpdateTask = async (taskId: number, updates: Partial<Task>) => {
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -359,7 +360,7 @@ export default function TaskManager() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'DELETE',
       });
 
@@ -376,7 +377,7 @@ export default function TaskManager() {
   // Get AI recommendation
   const getNextTask = async () => {
     try {
-      const response = await fetch('http://localhost:8005/api/tasks/next');
+      const response = await fetch(`${config.apiUrl}/api/tasks/next`);
       if (!response.ok) {
         throw new Error('Failed to get next task');
       }
@@ -441,7 +442,7 @@ export default function TaskManager() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8005/api/tasks/${draggedTaskId}`, {
+      const response = await fetch(`${config.apiUrl}/api/tasks/${draggedTaskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

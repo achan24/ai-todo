@@ -125,7 +125,7 @@ const GoalItem = ({
                   </svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 010 1.08l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                   </svg>
                 )}
               </button>
@@ -358,7 +358,7 @@ export default function GoalManager() {
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch('http://localhost:8005/api/goals');
+      const response = await fetch(`${config.apiUrl}/api/goals`);
       if (!response.ok) {
         throw new Error('Failed to fetch goals');
       }
@@ -407,7 +407,7 @@ export default function GoalManager() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8005/api/goals/${draggedGoalId}`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${draggedGoalId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -452,7 +452,7 @@ export default function GoalManager() {
     if (!goalToDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8005/api/goals/${goalToDelete.id}`, {
+      const response = await fetch(`${config.apiUrl}/api/goals/${goalToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -546,7 +546,7 @@ export default function GoalManager() {
                     </svg>
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 010 1.08l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                     </svg>
                   )}
                 </button>

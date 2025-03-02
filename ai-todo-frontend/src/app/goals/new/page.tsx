@@ -10,6 +10,7 @@ import {
   Box,
   Paper,
 } from '@mui/material';
+import config from '@/config/config';
 
 export default function NewGoal() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function NewGoal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:8005/api/goals', {
+      const response = await fetch(`${config.apiUrl}/api/goals`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
