@@ -16,7 +16,7 @@ import { Task } from '../types/task';
 import SendIcon from '@mui/icons-material/Send';
 import ExtractIcon from '@mui/icons-material/CallSplit';
 import ExtractTasksDialog from './ExtractTasksDialog';
-import config from '../config';
+import config from '@/config/config';
 
 interface Message {
   role: 'user' | 'assistant';

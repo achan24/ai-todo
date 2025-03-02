@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/solid';
 import EditTaskDialog from './EditTaskDialog';
 import ContributionDialog from './ContributionDialog';
-import config from '../config';
+import config from '@/config/config';
 
 interface Task {
   id: number;

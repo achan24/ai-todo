@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import config from '../config'; // Assuming config is in a separate file
+import config from '@/config/config'; // Import from the correct path
 
 interface Metric {
   id: number;
