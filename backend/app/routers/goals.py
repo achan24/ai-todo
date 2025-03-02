@@ -6,7 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ..database import get_db
+from ..database import get_db, get_fresh_db
 from ..models.goal import Goal, Metric
 from ..models.task import Task
 from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema, MetricCreate, Metric as MetricSchema
@@ -78,34 +78,52 @@ def prepare_goal_for_response(goal):
             "subgoals": []
         }
         
-        # Now try to add related objects one by one, catching exceptions for each
+        # Now try to add related objects one by one, using fresh DB sessions for each
         try:
-            goal_dict["tasks"] = goal.tasks
+            fresh_db = get_fresh_db()
+            fresh_goal = fresh_db.query(Goal).filter(Goal.id == goal.id).first()
+            goal_dict["tasks"] = fresh_goal.tasks
+            fresh_db.close()
         except Exception as e:
             logger.error(f"Error getting tasks for goal {goal.id}: {str(e)}")
         
         try:
-            goal_dict["metrics"] = goal.metrics
+            fresh_db = get_fresh_db()
+            fresh_goal = fresh_db.query(Goal).filter(Goal.id == goal.id).first()
+            goal_dict["metrics"] = fresh_goal.metrics
+            fresh_db.close()
         except Exception as e:
             logger.error(f"Error getting metrics for goal {goal.id}: {str(e)}")
         
         try:
-            goal_dict["experiences"] = goal.experiences
+            fresh_db = get_fresh_db()
+            fresh_goal = fresh_db.query(Goal).filter(Goal.id == goal.id).first()
+            goal_dict["experiences"] = fresh_goal.experiences
+            fresh_db.close()
         except Exception as e:
             logger.error(f"Error getting experiences for goal {goal.id}: {str(e)}")
         
         try:
-            goal_dict["strategies"] = goal.strategies
+            fresh_db = get_fresh_db()
+            fresh_goal = fresh_db.query(Goal).filter(Goal.id == goal.id).first()
+            goal_dict["strategies"] = fresh_goal.strategies
+            fresh_db.close()
         except Exception as e:
             logger.error(f"Error getting strategies for goal {goal.id}: {str(e)}")
         
         try:
-            goal_dict["conversations"] = goal.conversations
+            fresh_db = get_fresh_db()
+            fresh_goal = fresh_db.query(Goal).filter(Goal.id == goal.id).first()
+            goal_dict["conversations"] = fresh_goal.conversations
+            fresh_db.close()
         except Exception as e:
             logger.error(f"Error getting conversations for goal {goal.id}: {str(e)}")
         
         try:
-            goal_dict["subgoals"] = goal.subgoals
+            fresh_db = get_fresh_db()
+            fresh_goal = fresh_db.query(Goal).filter(Goal.id == goal.id).first()
+            goal_dict["subgoals"] = fresh_goal.subgoals
+            fresh_db.close()
         except Exception as e:
             logger.error(f"Error getting subgoals for goal {goal.id}: {str(e)}")
         
