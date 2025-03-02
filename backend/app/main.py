@@ -6,6 +6,7 @@ from .database import engine, Base
 from .core.config import settings
 from .auth import get_current_user, User
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,10 +16,26 @@ def create_app():
     # Create FastAPI app
     app = FastAPI()
 
-    # Configure CORS - temporarily allow all origins for debugging
+    # Configure CORS with origins from environment variable or settings
+    cors_origins = os.getenv("BACKEND_CORS_ORIGINS")
+    if cors_origins:
+        try:
+            # Try to parse the environment variable as a JSON list
+            import json
+            origins = json.loads(cors_origins)
+            logger.info(f"Using CORS origins from environment: {origins}")
+        except json.JSONDecodeError:
+            # If not valid JSON, split by comma
+            origins = [origin.strip() for origin in cors_origins.split(",")]
+            logger.info(f"Using CORS origins from environment (comma-separated): {origins}")
+    else:
+        # Fall back to settings
+        origins = settings.BACKEND_CORS_ORIGINS
+        logger.info(f"Using CORS origins from settings: {origins}")
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Temporarily allow all origins
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
