@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch, AsyncMock
 from app.services.ai_service import get_task_recommendation, create_fallback_recommendation
-from app.models.task import Task, PriorityEnum
+from app.models.task import Task
 
 @pytest.fixture
 def sample_tasks():
@@ -11,7 +11,7 @@ def sample_tasks():
             id=1,
             title="Urgent Task",
             description="This needs to be done ASAP",
-            priority=PriorityEnum.high,
+            priority=1,  # high priority
             due_date=datetime.utcnow() + timedelta(days=1),
             created_at=datetime.utcnow(),
             user_id=1
@@ -20,7 +20,7 @@ def sample_tasks():
             id=2,
             title="Regular Task",
             description="Normal priority task",
-            priority=PriorityEnum.medium,
+            priority=2,  # medium priority
             due_date=datetime.utcnow() + timedelta(days=3),
             created_at=datetime.utcnow(),
             user_id=1
@@ -29,7 +29,7 @@ def sample_tasks():
             id=3,
             title="Low Priority Task",
             description="Can wait",
-            priority=PriorityEnum.low,
+            priority=3,  # low priority
             due_date=datetime.utcnow() + timedelta(days=7),
             created_at=datetime.utcnow(),
             user_id=1
@@ -65,7 +65,7 @@ async def test_ai_recommendation_failure_fallback(sample_tasks):
         
         # Should fall back to highest priority task
         assert result.id == 1
-        assert result.priority == PriorityEnum.high
+        assert result.priority == 1  # high priority
         assert result.ai_confidence == 0.7  # Default fallback confidence
 
 def test_fallback_recommendation(sample_tasks):
@@ -73,7 +73,7 @@ def test_fallback_recommendation(sample_tasks):
     
     # Should choose the high priority task with earliest due date
     assert result.id == 1
-    assert result.priority == PriorityEnum.high
+    assert result.priority == 1  # high priority
     assert result.ai_confidence == 0.7
     assert "priority" in result.reasoning.lower()
 

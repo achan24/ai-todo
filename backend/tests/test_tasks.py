@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from app.schemas.task import TaskCreate, PriorityEnum
+from app.schemas.task import TaskCreate
 from app.models.task import Task
 
 def test_create_task(client, test_user):
@@ -30,7 +30,7 @@ def test_get_tasks(client, test_user, db):
     tasks = [
         Task(
             title=f"Test Task {i}",
-            priority=PriorityEnum.medium,
+            priority="medium",
             user_id=test_user["id"]
         )
         for i in range(3)
@@ -53,7 +53,7 @@ def test_update_task(client, test_user, db):
     # Create a test task
     task = Task(
         title="Original Title",
-        priority=PriorityEnum.low,
+        priority="low",
         user_id=test_user["id"]
     )
     db.add(task)
@@ -80,7 +80,7 @@ def test_delete_task(client, test_user, db):
     # Create a test task
     task = Task(
         title="Task to Delete",
-        priority=PriorityEnum.medium,
+        priority="medium",
         user_id=test_user["id"]
     )
     db.add(task)
@@ -102,19 +102,19 @@ def test_get_next_task(client, test_user, db):
     tasks = [
         Task(
             title="High Priority Task",
-            priority=PriorityEnum.high,
+            priority="high",
             due_date=datetime.utcnow() + timedelta(days=1),
             user_id=test_user["id"]
         ),
         Task(
             title="Medium Priority Task",
-            priority=PriorityEnum.medium,
+            priority="medium",
             due_date=datetime.utcnow() + timedelta(days=2),
             user_id=test_user["id"]
         ),
         Task(
             title="Low Priority Task",
-            priority=PriorityEnum.low,
+            priority="low",
             due_date=datetime.utcnow() + timedelta(days=3),
             user_id=test_user["id"]
         )
@@ -142,7 +142,7 @@ def test_access_other_user_task(client, test_user, db):
     # Create a task for another user
     other_task = Task(
         title="Other User's Task",
-        priority=PriorityEnum.medium,
+        priority="medium",
         user_id=test_user["id"] + 1  # Different user ID
     )
     db.add(other_task)
