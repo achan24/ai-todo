@@ -41,3 +41,21 @@ class Task(Base):
                           lazy='joined')
     goal = relationship("Goal", back_populates="tasks")
     metric = relationship("Metric", back_populates="tasks")
+
+    @property
+    def priority_safe(self):
+        """Return the priority as a string, handling numeric values"""
+        if self.priority is None:
+            return PriorityEnum.medium
+        if isinstance(self.priority, str):
+            return self.priority
+        if isinstance(self.priority, int) or self.priority.isdigit():
+            # Map numeric priorities to enum values
+            priority_map = {
+                1: PriorityEnum.high,
+                2: PriorityEnum.medium,
+                3: PriorityEnum.low
+            }
+            num_priority = int(self.priority)
+            return priority_map.get(num_priority, PriorityEnum.medium)
+        return self.priority
