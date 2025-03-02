@@ -331,3 +331,42 @@ If data appears to be "not saving" but the database tables and relationships are
   1. Check if they're duplicates of existing migrations in alembic/versions/
   2. If unique, move them to alembic/versions/
   3. If duplicates, delete them to avoid confusion
+
+25. Deployment Checklist
+===================
+
+1. Check All URLs and API Endpoints
+---------------------------------
+- Search codebase for hardcoded URLs (grep for "http://" and "https://")
+- Ensure all API calls use environment variables or config values
+- Verify frontend is using the correct backend URL
+- Test all API endpoints with the actual production URLs before deploying
+- Check for localhost references that might have been missed
+
+2. CORS Configuration
+------------------
+- Ensure backend CORS settings include all frontend domains
+- Test CORS with actual production domains before deploying
+- Include both development and production domains in CORS settings
+- Remember that CORS issues only appear in browser environments, not in local API tests
+
+3. Environment Variables
+---------------------
+- Verify all required environment variables are set in production
+- Use a .env.example file to document all required variables
+- Double-check sensitive values like API keys and database credentials
+- Ensure database connection strings are properly formatted for production
+
+4. Database Connections
+--------------------
+- Test database connections with actual production credentials
+- Verify SSL settings for secure database connections
+- Check connection pooling settings for optimal performance
+- Ensure proper error handling for database connection failures
+
+5. Pre-Deployment Testing
+----------------------
+- Run a local production build before pushing to production
+- Test authentication flows with production services
+- Verify file uploads and downloads if applicable
+- Check mobile responsiveness and cross-browser compatibility

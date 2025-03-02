@@ -6,6 +6,7 @@ import { Button, Container, Typography, Box, List, ListItem, IconButton, Dialog,
 import AddIcon from '@mui/icons-material/Add';
 import { PencilIcon, TrashIcon, ClockIcon } from '@heroicons/react/24/solid';
 import config from '@/config/config';
+import { supabase } from '@/lib/supabase';
 
 interface Goal {
   id: number;
@@ -358,7 +359,22 @@ export default function GoalManager() {
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch(`${config.apiUrl}/api/goals`);
+      // Get the session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add authorization header if we have a session
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`${config.apiUrl}/api/goals`, {
+        headers
+      });
+      
       if (!response.ok) {
         throw new Error('Failed to fetch goals');
       }

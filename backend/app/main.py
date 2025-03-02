@@ -15,17 +15,10 @@ def create_app():
     # Create FastAPI app
     app = FastAPI()
 
-    # Configure CORS
-    origins = settings.BACKEND_CORS_ORIGINS
-    # Ensure the Render frontend domain is included
-    if "https://ai-todoo.onrender.com" not in origins:
-        origins.append("https://ai-todoo.onrender.com")
-    
-    logger.info(f"CORS origins: {origins}")
-    
+    # Configure CORS - temporarily allow all origins for debugging
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=["*"],  # Temporarily allow all origins
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

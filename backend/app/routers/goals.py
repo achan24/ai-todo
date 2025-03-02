@@ -8,6 +8,7 @@ from ..models.goal import Goal, Metric
 from ..models.task import Task
 from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema, MetricCreate, Metric as MetricSchema
 from ..schemas.task import TaskCreate, Task as TaskSchema
+from ..auth import get_current_user, User
 
 router = APIRouter(
     prefix="/goals",
@@ -58,6 +59,7 @@ def prepare_goal_for_response(goal):
 @router.get("/", response_model=List[GoalSchema])
 async def get_goals(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100
 ):
@@ -65,7 +67,7 @@ async def get_goals(
     # Get all goals for the current user
     goals = (
         db.query(Goal)
-        .filter(Goal.user_id == 1)
+        .filter(Goal.user_id == current_user.id)
         .order_by(Goal.created_at.desc())
         .all()
     )
@@ -77,10 +79,11 @@ async def get_goals(
     # Return only top-level goals (those without parents)
     return [goal for goal in goals if goal.parent_id is None]
 
-@router.post("/", response_model=GoalSchema)
+@router.post("/", response_model=GoalSchema, status_code=201)
 async def create_goal(
     goal: GoalCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Create a new goal"""
     # If parent_id is provided, verify it exists
@@ -93,7 +96,7 @@ async def create_goal(
         title=goal.title,
         description=goal.description,
         parent_id=goal.parent_id,
-        user_id=1  # Hardcode user_id as 1 for now
+        user_id=current_user.id
     )
     db.add(db_goal)
     db.commit()
@@ -103,27 +106,40 @@ async def create_goal(
 @router.get("/{goal_id}", response_model=GoalSchema)
 async def read_goal(
     goal_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get a specific goal by ID"""
+    # Get the goal
     goal = db.query(Goal).filter(Goal.id == goal_id).first()
-    if goal is None:
+    if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-        
-    # Recursively prepare all metrics in the goal tree
+    
+    # Check if the goal belongs to the current user
+    if str(goal.user_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+    
+    # Prepare metrics for response
     goal = prepare_goal_for_response(goal)
+    
     return goal
 
 @router.put("/{goal_id}", response_model=GoalSchema)
 async def update_goal(
     goal_id: int,
     goal_update: GoalUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Update a goal"""
-    db_goal = db.query(Goal).filter(Goal.id == goal_id).first()
-    if db_goal is None:
+    # Get the goal
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
+    
+    # Check if the goal belongs to the current user
+    if str(goal.user_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this goal")
     
     # Prevent circular references
     if goal_update.parent_id:
@@ -146,30 +162,36 @@ async def update_goal(
 
     # Update goal fields
     if goal_update.title is not None:
-        db_goal.title = goal_update.title
+        goal.title = goal_update.title
     if goal_update.description is not None:
-        db_goal.description = goal_update.description
+        goal.description = goal_update.description
     if goal_update.parent_id is not None:
-        db_goal.parent_id = goal_update.parent_id
+        goal.parent_id = goal_update.parent_id
     if goal_update.current_strategy_id is not None:
-        db_goal.current_strategy_id = goal_update.current_strategy_id
+        goal.current_strategy_id = goal_update.current_strategy_id
     if goal_update.priority is not None:
-        db_goal.priority = goal_update.priority
+        goal.priority = goal_update.priority
 
     db.commit()
-    db.refresh(db_goal)
-    goal = prepare_goal_for_response(db_goal)
+    db.refresh(goal)
+    goal = prepare_goal_for_response(goal)
     return goal
 
 @router.delete("/{goal_id}")
 async def delete_goal(
     goal_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Delete a goal"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    # Get the goal
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
+    
+    # Check if the goal belongs to the current user
+    if str(goal.user_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
     
     db.delete(goal)
     db.commit()
@@ -178,24 +200,39 @@ async def delete_goal(
 @router.get("/{goal_id}/tasks", response_model=List[TaskSchema])
 async def get_goal_tasks(
     goal_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get all tasks for a specific goal"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    # Get the goal
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-    return db.query(Task).filter(Task.goal_id == goal_id).all()
+    
+    # Check if the goal belongs to the current user
+    if str(goal.user_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+    
+    # Get all tasks for the goal
+    tasks = db.query(Task).filter(Task.goal_id == goal_id).all()
+    return tasks
 
 @router.post("/{goal_id}/tasks", response_model=TaskSchema)
 async def create_goal_task(
     goal_id: int,
     task: TaskCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Create a new task for a goal"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    # Get the goal
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
+    
+    # Check if the goal belongs to the current user
+    if str(goal.user_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to create tasks for this goal")
     
     # If parent_id is provided, verify it exists
     if task.parent_id:
@@ -212,7 +249,7 @@ async def create_goal_task(
         parent_id=task.parent_id,
         estimated_minutes=task.estimated_minutes,
         goal_id=goal_id,
-        user_id=1  # Hardcoded for now
+        user_id=current_user.id
     )
     db.add(db_task)
     db.commit()
@@ -223,13 +260,20 @@ async def create_goal_task(
 async def create_metric(
     goal_id: int,
     metric: MetricCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Create a new metric for a goal"""
-    db_goal = db.query(Goal).filter(Goal.id == goal_id).first()
-    if not db_goal:
+    # Get the goal
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
+    
+    # Check if the goal belongs to the current user
+    if str(goal.user_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to create metrics for this goal")
 
+    db_goal = goal
     # Create the metric
     db_metric = Metric(**metric.dict())
     db_metric.goal_id = goal_id
