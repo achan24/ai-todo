@@ -119,6 +119,10 @@ def prepare_goal_for_response(goal):
     except Exception as e:
         logger.error(f"Error preparing goal {goal.id} for response: {str(e)}")
         # Return a minimal goal object
+        user_id = goal.user_id
+        if hasattr(user_id, 'hex'):  # Check if it's a UUID object
+            user_id = str(user_id)
+            
         return {
             "id": goal.id,
             "title": goal.title,
@@ -126,7 +130,7 @@ def prepare_goal_for_response(goal):
             "priority": goal.priority,
             "created_at": goal.created_at,
             "updated_at": goal.updated_at,
-            "user_id": goal.user_id,
+            "user_id": user_id,
             "parent_id": goal.parent_id,
             "current_strategy_id": goal.current_strategy_id,
             "tasks": [],
@@ -185,7 +189,13 @@ async def create_goal(
             parent = db.query(Goal).filter(Goal.id == goal.parent_id).first()
             if not parent:
                 raise HTTPException(status_code=404, detail="Parent goal not found")
-            if parent.user_id != current_user:
+            
+            # Convert UUID to string if needed
+            parent_user_id = parent.user_id
+            if hasattr(parent_user_id, 'hex'):  # Check if it's a UUID object
+                parent_user_id = str(parent_user_id)
+                
+            if parent_user_id != current_user:
                 raise HTTPException(status_code=403, detail="Not authorized to create subgoals for this parent")
         
         # Create the goal
@@ -219,7 +229,12 @@ async def read_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the goal belongs to the current user
-        if goal.user_id != current_user:
+        # Convert UUID to string if needed
+        goal_user_id = goal.user_id
+        if hasattr(goal_user_id, 'hex'):  # Check if it's a UUID object
+            goal_user_id = str(goal_user_id)
+            
+        if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Prepare metrics for response
@@ -246,7 +261,12 @@ async def update_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the goal belongs to the current user
-        if goal.user_id != current_user:
+        # Convert UUID to string if needed
+        goal_user_id = goal.user_id
+        if hasattr(goal_user_id, 'hex'):  # Check if it's a UUID object
+            goal_user_id = str(goal_user_id)
+            
+        if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to update this goal")
         
         # Prevent circular references
@@ -259,7 +279,13 @@ async def update_goal(
             parent = db.query(Goal).filter(Goal.id == goal_update.parent_id).first()
             if not parent:
                 raise HTTPException(status_code=404, detail="Parent goal not found")
-            if parent.user_id != current_user:
+            
+            # Convert UUID to string if needed
+            parent_user_id = parent.user_id
+            if hasattr(parent_user_id, 'hex'):  # Check if it's a UUID object
+                parent_user_id = str(parent_user_id)
+                
+            if parent_user_id != current_user:
                 raise HTTPException(status_code=403, detail="Not authorized to use this parent goal")
             
             # Check for circular references in the hierarchy
@@ -304,7 +330,12 @@ async def delete_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the goal belongs to the current user
-        if goal.user_id != current_user:
+        # Convert UUID to string if needed
+        goal_user_id = goal.user_id
+        if hasattr(goal_user_id, 'hex'):  # Check if it's a UUID object
+            goal_user_id = str(goal_user_id)
+            
+        if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
         
         db.delete(goal)
@@ -330,7 +361,12 @@ async def get_goal_tasks(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the goal belongs to the current user
-        if goal.user_id != current_user:
+        # Convert UUID to string if needed
+        goal_user_id = goal.user_id
+        if hasattr(goal_user_id, 'hex'):  # Check if it's a UUID object
+            goal_user_id = str(goal_user_id)
+            
+        if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Get all tasks for the goal
@@ -356,7 +392,12 @@ async def create_goal_task(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the goal belongs to the current user
-        if goal.user_id != current_user:
+        # Convert UUID to string if needed
+        goal_user_id = goal.user_id
+        if hasattr(goal_user_id, 'hex'):  # Check if it's a UUID object
+            goal_user_id = str(goal_user_id)
+            
+        if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to create tasks for this goal")
         
         # If parent_id is provided, verify it exists
@@ -400,9 +441,14 @@ async def create_metric(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the goal belongs to the current user
-        if goal.user_id != current_user:
+        # Convert UUID to string if needed
+        goal_user_id = goal.user_id
+        if hasattr(goal_user_id, 'hex'):  # Check if it's a UUID object
+            goal_user_id = str(goal_user_id)
+            
+        if goal_user_id != current_user:
             raise HTTPException(status_code=403, detail="Not authorized to create metrics for this goal")
-
+        
         # Create the metric
         db_metric = Metric(**metric.dict())
         db_metric.goal_id = goal_id

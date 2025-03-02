@@ -15,7 +15,7 @@ interface Goal {
   priority?: 'high' | 'medium' | 'low';
   created_at: string;
   updated_at: string;
-  user_id: number;
+  user_id: string;
   parent_id?: number;
   current_strategy_id?: number;
   importance?: string;
