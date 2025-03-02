@@ -536,7 +536,37 @@ Efficiency score improvements: % increase in results per time spent.
 
 ---
 
-## 🔹 Database Migration & Supabase Integration Plan
+## **🔹 PostgreSQL Migration Requirements**
+
+1. **Database Dependencies**:
+   - psycopg2-binary==2.9.9 (PostgreSQL adapter for Python)
+   - SQLAlchemy==2.0.23 (ORM with PostgreSQL support)
+   - alembic==1.12.1 (Database migration tool)
+
+2. **Environment Configuration**:
+   - DATABASE_URL format: postgresql://username:password@host:port/database_name
+   - Separate development and production database URLs
+   - SSL configuration for secure connections
+
+3. **Data Migration**:
+   - Backup scripts for SQLite data
+   - Import scripts for PostgreSQL
+   - Data transformation utilities for handling type differences
+
+4. **Schema Compatibility**:
+   - UUID field type support
+   - Proper handling of enum types
+   - JSON/JSONB field support
+   - Timestamp with timezone support
+
+5. **Connection Management**:
+   - Connection pooling configuration
+   - Connection timeout and retry settings
+   - Proper session handling to avoid detached instances
+
+---
+
+## **🔹 Database Migration & Supabase Integration Plan**
 
 ### Motivation
 The current SQLite database implementation has served well for development, but for production deployment we need:
@@ -576,7 +606,7 @@ The current SQLite database implementation has served well for development, but 
 
 ---
 
-## 🔹 Realistic Supabase Migration Approach
+## **🔹 Realistic Supabase Migration Approach**
 
 ### Proof of Concept Phase (2-3 hours)
 - Set up Supabase project with proper settings

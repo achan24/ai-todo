@@ -370,3 +370,54 @@ If data appears to be "not saving" but the database tables and relationships are
 - Test authentication flows with production services
 - Verify file uploads and downloads if applicable
 - Check mobile responsiveness and cross-browser compatibility
+
+PostgreSQL Migration Tips
+========================
+
+1. Database Connection
+--------------------
+- Use environment variables for all database connection parameters
+- Implement connection pooling for better performance
+- Set appropriate connection timeouts and retry logic
+- Test connections with both development and production settings
+- Use SSL for secure connections in production
+
+2. SQLAlchemy ORM Considerations
+------------------------------
+- Always convert UUID objects to strings when comparing IDs
+- Use fresh database sessions when loading related objects to avoid detached instance errors
+- Convert SQLAlchemy model objects to dictionaries before returning from API endpoints
+- Implement proper error handling for database operations
+- Use explicit joins instead of relying on lazy loading when possible
+
+3. Data Type Compatibility
+------------------------
+- PostgreSQL has stricter type enforcement than SQLite
+- Use proper enum types in PostgreSQL (create custom types if needed)
+- Handle JSON/JSONB fields appropriately
+- Ensure timestamp fields include timezone information
+- Test numeric field precision and scale
+
+4. Migration Strategy
+------------------
+- Create a complete backup of SQLite data before migration
+- Use Alembic for managing schema migrations
+- Test migrations on a development database before production
+- Implement data validation before and after migration
+- Consider a phased migration approach for large datasets
+
+5. Common PostgreSQL Issues
+------------------------
+- Detached instance errors when accessing related objects across sessions
+- UUID comparison issues (string vs. UUID object)
+- Enum type mismatches between SQLite and PostgreSQL
+- Connection pool exhaustion under heavy load
+- Transaction isolation level differences
+
+6. Performance Optimization
+------------------------
+- Create appropriate indexes for frequently queried fields
+- Use connection pooling with appropriate settings
+- Implement query optimization for complex joins
+- Consider using PostgreSQL-specific features like materialized views
+- Monitor query performance and optimize slow queries
