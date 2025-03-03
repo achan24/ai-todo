@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .routers import tasks, goals, metrics, experiences, strategies, conversations
@@ -57,7 +57,16 @@ def create_app():
     # Create database tables
     Base.metadata.create_all(bind=engine)
     
-    # Add routers
+    # Include middleware and exception handlers
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Custom handler for HTTP exceptions to preserve structured error details"""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail if isinstance(exc.detail, dict) else {"detail": exc.detail},
+        )
+    
+    # Include routers
     app.include_router(tasks.router, prefix="/api", tags=["tasks"])
     app.include_router(goals.router, prefix="/api", tags=["goals"])
     app.include_router(metrics.router, prefix="/api", tags=["metrics"])

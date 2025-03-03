@@ -310,8 +310,25 @@ COMPARISON RESULT: {re.sub(r'[^a-zA-Z0-9]', '', str(goal.user_id)).lower() == re
             
             # Compare using clean UUIDs without hyphens
             if clean_goal_id != clean_user_id:
-                logger.error(f"Authorization failed (UUID comparison): Goal User '{goal_uuid}' vs Current User '{user_uuid}'")
-                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+                error_msg = f"Authorization failed (UUID comparison): Goal User '{goal_uuid}' vs Current User '{user_uuid}'"
+                logger.error(error_msg)
+                
+                # Include debug info in the error response
+                debug_info = {
+                    "detail": "Not authorized to access this goal",
+                    "debug": {
+                        "goal_id": goal_id,
+                        "goal_title": goal.title,
+                        "goal_user_id": str(goal.user_id),
+                        "goal_user_id_type": str(type(goal.user_id)),
+                        "current_user_id": str(current_user.id),
+                        "current_user_id_type": str(type(current_user.id)),
+                        "normalized_goal_id": clean_goal_id,
+                        "normalized_user_id": clean_user_id,
+                        "comparison_result": clean_goal_id == clean_user_id
+                    }
+                }
+                raise HTTPException(status_code=403, detail=debug_info)
         except ValueError as e:
             # If conversion to UUID fails, fall back to string comparison
             logger.warning(f"UUID conversion failed: {e}, falling back to string comparison")
@@ -326,7 +343,23 @@ COMPARISON RESULT: {re.sub(r'[^a-zA-Z0-9]', '', str(goal.user_id)).lower() == re
             if goal_id_str != user_id_str:
                 error_msg = f"Authorization failed (string comparison): Goal User '{goal_id_str}' vs Current User '{user_id_str}'"
                 logger.error(error_msg)
-                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+                
+                # Include debug info in the error response
+                debug_info = {
+                    "detail": "Not authorized to access this goal",
+                    "debug": {
+                        "goal_id": goal_id,
+                        "goal_title": goal.title,
+                        "goal_user_id": str(goal.user_id),
+                        "goal_user_id_type": str(type(goal.user_id)),
+                        "current_user_id": str(current_user.id),
+                        "current_user_id_type": str(type(current_user.id)),
+                        "normalized_goal_id": goal_id_str,
+                        "normalized_user_id": user_id_str,
+                        "comparison_result": goal_id_str == user_id_str
+                    }
+                }
+                raise HTTPException(status_code=403, detail=debug_info)
         
         # Convert goal to dictionary to avoid detached instance errors
         goal_dict = prepare_goal_for_response(goal)

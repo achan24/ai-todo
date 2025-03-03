@@ -443,7 +443,19 @@ export default function GoalPage() {
       setError(null);
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch goal');
+        // Try to parse error response for debug info
+        const errorData = await response.json().catch(() => null);
+        
+        // Create detailed error message
+        let errorMessage = 'Failed to fetch goal';
+        if (errorData && errorData.debug) {
+          console.error('Goal authorization debug info:', errorData.debug);
+          
+          // Create a more detailed error message
+          errorMessage = `${errorData.detail || 'Authorization error'}\n\nDebug info: ${JSON.stringify(errorData.debug, null, 2)}`;
+        }
+        
+        throw new Error(errorMessage);
       }
       const data = await response.json();
       setGoal({
