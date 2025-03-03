@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects import sqlite
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 import enum
 from ..database import Base
@@ -40,7 +41,7 @@ class Goal(Base):
     priority = Column(String, nullable=True)  # high, medium, low
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    user_id = Column(String, default="1")  
+    user_id = Column(UUID(as_uuid=False), nullable=False, default="1")  # PostgreSQL UUID type
     parent_id = Column(Integer, ForeignKey('goals.id', ondelete='CASCADE'), nullable=True)
     current_strategy_id = Column(Integer, nullable=True)
 

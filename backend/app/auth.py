@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
+from uuid import UUID
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -52,6 +53,15 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         
         # Log user ID for debugging
         logger.info(f"Authenticated user ID from JWT: {user_id}, type: {type(user_id)}")
+        
+        # Convert to standard UUID format with hyphens
+        try:
+            # This will standardize the UUID format with hyphens
+            user_id = str(UUID(user_id))
+            logger.info(f"Normalized UUID: {user_id}")
+        except ValueError as e:
+            logger.warning(f"Could not convert user_id to UUID: {e}")
+            # Continue with the original user_id if it's not a valid UUID
         
         # Get additional user information if available
         user_email = payload.get("email")

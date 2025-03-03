@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional
 import json
 import logging
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -277,20 +278,44 @@ async def read_goal(
     """Get a specific goal by ID"""
     try:
         logger.info(f"Reading goal with ID: {goal_id}")
+        logger.info(f"Current user object: {current_user}")
+        logger.info(f"Current user dict: {current_user.dict()}")
+        
         goal = db.query(Goal).filter(Goal.id == goal_id).first()
         if not goal:
             logger.warning(f"Goal not found: {goal_id}")
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Add detailed debug logging
-        logger.info(f"Goal user_id: {goal.user_id}, type: {type(goal.user_id)}")
-        logger.info(f"Current user: {current_user.id}, type: {type(current_user.id)}")
-        logger.info(f"Direct comparison: {str(goal.user_id) == str(current_user.id)}")
+        logger.info(f"Goal user_id: '{goal.user_id}', type: {type(goal.user_id)}")
+        logger.info(f"Current user: '{current_user.id}', type: {type(current_user.id)}")
         
-        # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user.id):
-            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
-            raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        # Try to convert both IDs to UUID objects for comparison
+        try:
+            goal_uuid = UUID(str(goal.user_id)) if not isinstance(goal.user_id, UUID) else goal.user_id
+            user_uuid = UUID(str(current_user.id)) if not isinstance(current_user.id, UUID) else current_user.id
+            
+            logger.info(f"Converted goal_uuid: {goal_uuid}, type: {type(goal_uuid)}")
+            logger.info(f"Converted user_uuid: {user_uuid}, type: {type(user_uuid)}")
+            
+            # Compare as UUID objects
+            if goal_uuid != user_uuid:
+                logger.error(f"Authorization failed (UUID comparison): Goal User '{goal_uuid}' vs Current User '{user_uuid}'")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        except ValueError as e:
+            # If conversion to UUID fails, fall back to string comparison
+            logger.warning(f"UUID conversion failed: {e}, falling back to string comparison")
+            
+            # Try different string comparison methods
+            goal_id_str = str(goal.user_id).lower().replace('-', '')
+            user_id_str = str(current_user.id).lower().replace('-', '')
+            
+            logger.info(f"Normalized goal_id_str: '{goal_id_str}'")
+            logger.info(f"Normalized user_id_str: '{user_id_str}'")
+            
+            if goal_id_str != user_id_str:
+                logger.error(f"Authorization failed (string comparison): Goal User '{goal_id_str}' vs Current User '{user_id_str}'")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Convert goal to dictionary to avoid detached instance errors
         goal_dict = prepare_goal_for_response(goal)
@@ -317,9 +342,14 @@ async def update_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to update this goal
-        if str(goal.user_id) != str(current_user.id):
-            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
-            raise HTTPException(status_code=403, detail="Not authorized to update this goal")
+        if isinstance(goal.user_id, UUID) and isinstance(current_user.id, UUID):
+            if goal.user_id != current_user.id:
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to update this goal")
+        else:
+            if str(goal.user_id) != str(current_user.id):
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to update this goal")
         
         # Update goal fields
         for field, value in goal_update.dict(exclude_unset=True).items():
@@ -353,9 +383,14 @@ async def delete_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to delete this goal
-        if str(goal.user_id) != str(current_user.id):
-            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
-            raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
+        if isinstance(goal.user_id, UUID) and isinstance(current_user.id, UUID):
+            if goal.user_id != current_user.id:
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
+        else:
+            if str(goal.user_id) != str(current_user.id):
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
         
         # Delete the goal
         db.delete(goal)
@@ -383,9 +418,14 @@ async def get_goal_tasks(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user.id):
-            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
-            raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        if isinstance(goal.user_id, UUID) and isinstance(current_user.id, UUID):
+            if goal.user_id != current_user.id:
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        else:
+            if str(goal.user_id) != str(current_user.id):
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Get tasks for the goal
         tasks = db.query(Task).filter(Task.goal_id == goal_id).all()
@@ -429,9 +469,14 @@ async def create_goal_task(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user.id):
-            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
-            raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        if isinstance(goal.user_id, UUID) and isinstance(current_user.id, UUID):
+            if goal.user_id != current_user.id:
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        else:
+            if str(goal.user_id) != str(current_user.id):
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Create new task
         new_task = Task(
@@ -485,9 +530,14 @@ async def create_metric(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user.id):
-            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
-            raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        if isinstance(goal.user_id, UUID) and isinstance(current_user.id, UUID):
+            if goal.user_id != current_user.id:
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
+        else:
+            if str(goal.user_id) != str(current_user.id):
+                logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Create new metric
         new_metric = Metric(
