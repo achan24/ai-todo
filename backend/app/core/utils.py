@@ -21,10 +21,21 @@ def normalize_user_id(user_id: Union[str, UUID, Any]) -> str:
         A normalized string representation of the user ID
     """
     try:
+        logger.info(f"Normalizing user ID: {user_id}, type: {type(user_id)}")
+        
+        # Handle None values
+        if user_id is None:
+            logger.warning("Received None user ID")
+            return ""
+            
         # Convert to string first
         user_id_str = str(user_id)
+        logger.info(f"User ID as string: {user_id_str}")
+        
         # Remove hyphens and convert to lowercase
-        return user_id_str.lower().replace('-', '')
+        normalized = user_id_str.lower().replace('-', '')
+        logger.info(f"Normalized user ID: {normalized}")
+        return normalized
     except Exception as e:
         logger.warning(f"Error normalizing user ID {user_id}: {str(e)}")
         return str(user_id)
@@ -40,4 +51,12 @@ def compare_user_ids(id1: Union[str, UUID, Any], id2: Union[str, UUID, Any]) -> 
     Returns:
         True if the normalized IDs are equal, False otherwise
     """
-    return normalize_user_id(id1) == normalize_user_id(id2)
+    norm_id1 = normalize_user_id(id1)
+    norm_id2 = normalize_user_id(id2)
+    result = norm_id1 == norm_id2
+    
+    logger.info(f"Comparing user IDs: {id1} vs {id2}")
+    logger.info(f"Normalized: {norm_id1} vs {norm_id2}")
+    logger.info(f"Result: {result}")
+    
+    return result

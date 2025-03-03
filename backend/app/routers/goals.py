@@ -11,7 +11,7 @@ from ..models.goal import Goal, Metric
 from ..models.task import Task
 from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema, MetricCreate, Metric as MetricSchema
 from ..schemas.task import TaskCreate, Task as TaskSchema
-from ..core.supabase_auth import get_current_user
+from ..auth import get_current_user, User
 from ..core.utils import compare_user_ids
 
 router = APIRouter(
@@ -198,17 +198,21 @@ def prepare_goal_for_response(goal):
 
 @router.get("/", response_model=List[GoalSchema])
 async def get_goals(
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all goals for the current user"""
     try:
+        logger.info(f"Getting goals for user: {current_user.id}, type: {type(current_user.id)}")
+        
         goals = (
             db.query(Goal)
-            .filter(Goal.user_id == current_user)
+            .filter(Goal.user_id == current_user.id)
             .order_by(Goal.created_at.desc())
             .all()
         )
+        
+        logger.info(f"Found {len(goals)} goals for user {current_user.id}")
         
         # Convert goals to dictionaries to avoid detached instance errors
         goal_dicts = []
@@ -224,7 +228,7 @@ async def get_goals(
 @router.post("/", response_model=GoalSchema)
 async def create_goal(
     goal_create: GoalCreate,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new goal"""
@@ -235,7 +239,7 @@ async def create_goal(
             if not parent_goal:
                 raise HTTPException(status_code=404, detail="Parent goal not found")
             
-            if str(parent_goal.user_id) != str(current_user):
+            if str(parent_goal.user_id) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to use this parent goal")
         
         # Create new goal
@@ -243,7 +247,7 @@ async def create_goal(
             title=goal_create.title,
             description=goal_create.description,
             priority=goal_create.priority,
-            user_id=current_user,
+            user_id=current_user.id,
             parent_id=goal_create.parent_id,
             current_strategy_id=goal_create.current_strategy_id
         )
@@ -267,22 +271,25 @@ async def create_goal(
 @router.get("/{goal_id}", response_model=GoalSchema)
 async def read_goal(
     goal_id: int,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get a specific goal by ID"""
     try:
+        logger.info(f"Reading goal with ID: {goal_id}")
         goal = db.query(Goal).filter(Goal.id == goal_id).first()
         if not goal:
+            logger.warning(f"Goal not found: {goal_id}")
             raise HTTPException(status_code=404, detail="Goal not found")
         
-        # Add debug logging
+        # Add detailed debug logging
         logger.info(f"Goal user_id: {goal.user_id}, type: {type(goal.user_id)}")
-        logger.info(f"Current user: {current_user}, type: {type(current_user)}")
+        logger.info(f"Current user: {current_user.id}, type: {type(current_user.id)}")
+        logger.info(f"Direct comparison: {str(goal.user_id) == str(current_user.id)}")
         
         # Check if the user has permission to access this goal
-        if not compare_user_ids(goal.user_id, current_user):
-            logger.warning(f"Authorization failed: {goal.user_id} != {current_user}")
+        if str(goal.user_id) != str(current_user.id):
+            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Convert goal to dictionary to avoid detached instance errors
@@ -300,7 +307,7 @@ async def read_goal(
 async def update_goal(
     goal_id: int,
     goal_update: GoalUpdate,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update a goal"""
@@ -310,7 +317,8 @@ async def update_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to update this goal
-        if not compare_user_ids(goal.user_id, current_user):
+        if str(goal.user_id) != str(current_user.id):
+            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
             raise HTTPException(status_code=403, detail="Not authorized to update this goal")
         
         # Update goal fields
@@ -335,7 +343,7 @@ async def update_goal(
 @router.delete("/{goal_id}")
 async def delete_goal(
     goal_id: int,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete a goal"""
@@ -345,7 +353,8 @@ async def delete_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to delete this goal
-        if not compare_user_ids(goal.user_id, current_user):
+        if str(goal.user_id) != str(current_user.id):
+            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
             raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
         
         # Delete the goal
@@ -364,7 +373,7 @@ async def delete_goal(
 @router.get("/{goal_id}/tasks", response_model=List[TaskSchema])
 async def get_goal_tasks(
     goal_id: int,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all tasks for a specific goal"""
@@ -374,7 +383,8 @@ async def get_goal_tasks(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if not compare_user_ids(goal.user_id, current_user):
+        if str(goal.user_id) != str(current_user.id):
+            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Get tasks for the goal
@@ -409,7 +419,7 @@ async def get_goal_tasks(
 async def create_goal_task(
     goal_id: int,
     task_create: TaskCreate,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new task for a specific goal"""
@@ -419,7 +429,8 @@ async def create_goal_task(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if not compare_user_ids(goal.user_id, current_user):
+        if str(goal.user_id) != str(current_user.id):
+            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Create new task
@@ -430,7 +441,7 @@ async def create_goal_task(
             priority=task_create.priority,
             due_date=task_create.due_date,
             goal_id=goal_id,
-            user_id=current_user
+            user_id=current_user.id
         )
         
         db.add(new_task)
@@ -464,7 +475,7 @@ async def create_goal_task(
 async def create_metric(
     goal_id: int,
     metric_create: MetricCreate,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new metric for a specific goal"""
@@ -474,7 +485,8 @@ async def create_metric(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if not compare_user_ids(goal.user_id, current_user):
+        if str(goal.user_id) != str(current_user.id):
+            logger.error(f"Authorization failed: Goal User {goal.user_id} vs Current User {current_user.id}")
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Create new metric
@@ -484,7 +496,7 @@ async def create_metric(
             target_value=metric_create.target_value,
             current_value=metric_create.current_value,
             goal_id=goal_id,
-            user_id=current_user
+            user_id=current_user.id
         )
         
         db.add(new_metric)
