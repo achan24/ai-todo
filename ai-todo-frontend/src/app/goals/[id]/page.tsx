@@ -40,6 +40,7 @@ import EditTaskDialog from '../../../components/EditTaskDialog';
 import TaskBreakdownDialog from '../../../components/TaskBreakdownDialog';
 import ConversationList from '@/components/ConversationList';
 import config from '@/config/config';
+import { supabase } from '@/lib/supabase';
 
 interface Task {
   id: number;
@@ -209,7 +210,7 @@ const TaskItem = ({
                   </svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71 3.938a.75.75 0 111.08-1.04l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                   </svg>
                 )}
               </button>
@@ -437,11 +438,34 @@ export default function GoalPage() {
     fetchGoalData();
   }, [params.id]);
 
+  // Helper function to get authentication headers
+  const getAuthHeaders = async (): Promise<HeadersInit> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    } else {
+      console.warn('No authentication token available');
+    }
+    
+    return headers;
+  };
+
   const fetchGoalData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`);
+      
+      const headers = await getAuthHeaders();
+      
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
+        headers
+      });
+      
       if (!response.ok) {
         // Try to parse error response for debug info
         const errorData = await response.json().catch(() => null);
@@ -467,7 +491,9 @@ export default function GoalPage() {
         conversations: data.conversations || [] // Ensure conversations is always an array
       });
 
-      const tasksResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`);
+      const tasksResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
+        headers
+      });
       if (tasksResponse.ok) {
         const tasksData = await tasksResponse.json();
         setTasks(tasksData.map((task: Task) => ({
@@ -493,11 +519,11 @@ export default function GoalPage() {
     if (!newTaskTitle.trim()) return;
 
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           title: newTaskTitle,
           description: null,
@@ -513,34 +539,39 @@ export default function GoalPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Server error:', errorData);
-        throw new Error('Failed to add task');
+        throw new Error(errorData.detail || 'Failed to add task');
       }
 
-      const newTask = await response.json();
-      setTasks([...tasks, { 
-        ...newTask, 
-        tags: newTask.tags || [], 
-        estimated_minutes: newTask.estimated_minutes || null,
-        priority: newTask.priority || 'medium',
-        metric_id: newTask.metric_id || null,
-        contribution_value: newTask.contribution_value || null,
-        subtasks: newTask.subtasks || []
-      }]);
+      const addedTask = await response.json();
+      
+      // Update the goal's tasks array
+      setTasks(prevTasks => {
+        if (!prevTasks) return [addedTask];
+        return [...prevTasks, { 
+          ...addedTask, 
+          tags: addedTask.tags || [], 
+          estimated_minutes: addedTask.estimated_minutes || null,
+          priority: addedTask.priority || 'medium',
+          metric_id: addedTask.metric_id || null,
+          contribution_value: addedTask.contribution_value || null,
+          subtasks: addedTask.subtasks || []
+        }];
+      });
+
+      // Reset form and close modal
       setNewTaskTitle('');
     } catch (error) {
       console.error('Error adding task:', error);
-      throw error;
     }
   };
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/tasks/${updatedTask.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(updatedTask),
       });
 
@@ -586,11 +617,11 @@ export default function GoalPage() {
       }
 
       // Use single endpoint for all task completions
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           completed: !currentStatus,
           metric_id: task.metric_id,
@@ -633,8 +664,11 @@ export default function GoalPage() {
     }
 
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'DELETE',
+        headers
       });
 
       if (!response.ok) {
@@ -712,11 +746,11 @@ export default function GoalPage() {
     }
 
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/tasks/${draggedTaskId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           parent_id: targetTaskId
         }),
@@ -788,11 +822,11 @@ export default function GoalPage() {
         throw new Error('Name and unit are required');
       }
 
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/metrics`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           name: newMetric.name,
           description: newMetric.description || '',
@@ -838,11 +872,11 @@ export default function GoalPage() {
 
   const handleUpdateMetric = async (metricId: number, updates: Partial<Metric>) => {
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/metrics/${metricId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(updates),
       });
 
@@ -861,8 +895,11 @@ export default function GoalPage() {
     if (!confirmed) return;
 
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/metrics/${metricId}`, {
         method: 'DELETE',
+        headers
       });
 
       if (!response.ok) {
@@ -877,11 +914,11 @@ export default function GoalPage() {
 
   const handleUpdateDescription = async () => {
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           description: editedDescription
         }),
@@ -904,11 +941,11 @@ export default function GoalPage() {
         throw new Error('Content is required');
       }
 
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/experiences`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(newExperience),
       });
 
@@ -942,11 +979,11 @@ export default function GoalPage() {
         throw new Error('Title and all steps are required');
       }
 
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/strategies`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           title: newStrategy.title,
           steps: newStrategy.steps.filter(step => step.trim() !== '')
@@ -982,11 +1019,11 @@ export default function GoalPage() {
     if (!editingStrategy) return;
 
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/strategies/${editingStrategy.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           title: editingStrategy.title,
           steps: editingStrategy.steps.filter(step => step.trim() !== '')
@@ -1034,11 +1071,11 @@ export default function GoalPage() {
 
   const handleSetCurrentStrategy = async (strategyId: number) => {
     try {
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           current_strategy_id: strategyId
         }),
@@ -1060,11 +1097,11 @@ export default function GoalPage() {
   const handleCreateTodoFromStrategy = async (strategy: Strategy) => {
     try {
       // Create parent task from strategy title
+      const headers = await getAuthHeaders();
+      
       const parentResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           title: strategy.title,
           description: null,
@@ -1083,11 +1120,11 @@ export default function GoalPage() {
 
       // Create subtasks for each step
       for (const step of strategy.steps) {
+        const headers = await getAuthHeaders();
+        
         const subtaskResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             title: step,
             description: null,
@@ -1113,6 +1150,28 @@ export default function GoalPage() {
     }
   };
 
+  const handleDeleteGoal = async () => {
+    if (!confirm('Are you sure you want to delete this goal?')) return;
+    
+    try {
+      const headers = await getAuthHeaders();
+      
+      const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
+        method: 'DELETE',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || 'Failed to delete goal');
+      }
+      
+      router.push('/');
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    }
+  };
+
   const handlePasteTasks = async () => {
     if (!pastedTasksText.trim()) return;
     
@@ -1128,11 +1187,11 @@ export default function GoalPage() {
       // Create tasks in sequence
       const newTasks = [];
       for (const title of taskTitles) {
+        const headers = await getAuthHeaders();
+        
         const response = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             title,
             description: null,
@@ -1189,6 +1248,13 @@ export default function GoalPage() {
               onClick={() => router.push('/')}
             >
               Back to Goals
+            </Button>
+            <Button 
+              variant="contained" 
+              color="error"
+              onClick={handleDeleteGoal}
+            >
+              Delete Goal
             </Button>
           </div>
 
