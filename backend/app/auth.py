@@ -37,7 +37,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             token, 
             SUPABASE_JWT_SECRET, 
             algorithms=["HS256"],
-            options={"verify_signature": True}
+            options={"verify_signature": True, "verify_aud": False}
         )
         
         # Extract user information from the token
