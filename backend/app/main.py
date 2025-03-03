@@ -13,6 +13,10 @@ import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Set app-specific modules to DEBUG level
+for module in ['app.routers.goals', 'app.auth']:
+    logging.getLogger(module).setLevel(logging.DEBUG)
+
 def create_app():
     # Create FastAPI app
     app = FastAPI()

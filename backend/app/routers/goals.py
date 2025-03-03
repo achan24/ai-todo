@@ -279,33 +279,34 @@ async def read_goal(
     """Get a specific goal by ID"""
     try:
         logger.info(f"Reading goal with ID: {goal_id}")
-        logger.info(f"Current user object: {current_user}")
-        logger.info(f"Current user dict: {current_user.dict()}")
         
         goal = db.query(Goal).filter(Goal.id == goal_id).first()
         if not goal:
             logger.warning(f"Goal not found: {goal_id}")
             raise HTTPException(status_code=404, detail="Goal not found")
         
-        # Raw values before any processing
-        logger.info(f"RAW COMPARISON: goal.user_id='{goal.user_id}' vs current_user.id='{current_user.id}'")
-        
-        # Add detailed debug logging
-        logger.info(f"Goal user_id: '{goal.user_id}', type: {type(goal.user_id)}")
-        logger.info(f"Current user: '{current_user.id}', type: {type(current_user.id)}")
+        # Create a consolidated debug message with all critical information
+        debug_msg = f"""
+===== GOAL AUTH DEBUG FOR GOAL {goal_id} =====
+GOAL TITLE: {goal.title}
+GOAL USER_ID (RAW): {goal.user_id} ({type(goal.user_id)})
+CURRENT USER ID (RAW): {current_user.id} ({type(current_user.id)})
+NORMALIZED GOAL USER_ID: {re.sub(r'[^a-zA-Z0-9]', '', str(goal.user_id)).lower()}
+NORMALIZED USER ID: {re.sub(r'[^a-zA-Z0-9]', '', str(current_user.id)).lower()}
+COMPARISON RESULT: {re.sub(r'[^a-zA-Z0-9]', '', str(goal.user_id)).lower() == re.sub(r'[^a-zA-Z0-9]', '', str(current_user.id)).lower()}
+=============================================
+"""
+        # Log this as ERROR to ensure it shows up in production logs
+        logger.error(debug_msg)
         
         # Try to convert both IDs to UUID objects for comparison
         try:
             goal_uuid = UUID(str(goal.user_id)) if not isinstance(goal.user_id, UUID) else goal.user_id
             user_uuid = UUID(str(current_user.id)) if not isinstance(current_user.id, UUID) else current_user.id
             
-            logger.info(f"Converted goal_uuid: {goal_uuid}, type: {type(goal_uuid)}")
-            logger.info(f"Converted user_uuid: {user_uuid}, type: {type(user_uuid)}")
-            
             # Non-hyphenated comparison
             clean_goal_id = re.sub(r'[^a-zA-Z0-9]', '', str(goal_uuid)).lower()
             clean_user_id = re.sub(r'[^a-zA-Z0-9]', '', str(user_uuid)).lower()
-            logger.info(f"Clean comparison: '{clean_goal_id}' vs '{clean_user_id}' = {clean_goal_id == clean_user_id}")
             
             # Compare using clean UUIDs without hyphens
             if clean_goal_id != clean_user_id:
@@ -323,7 +324,8 @@ async def read_goal(
             logger.info(f"Normalized user_id_str: '{user_id_str}'")
             
             if goal_id_str != user_id_str:
-                logger.error(f"Authorization failed (string comparison): Goal User '{goal_id_str}' vs Current User '{user_id_str}'")
+                error_msg = f"Authorization failed (string comparison): Goal User '{goal_id_str}' vs Current User '{user_id_str}'"
+                logger.error(error_msg)
                 raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Convert goal to dictionary to avoid detached instance errors
