@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Any, Dict, Optional
 import json
 import logging
+import re
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -286,6 +287,9 @@ async def read_goal(
             logger.warning(f"Goal not found: {goal_id}")
             raise HTTPException(status_code=404, detail="Goal not found")
         
+        # Raw values before any processing
+        logger.info(f"RAW COMPARISON: goal.user_id='{goal.user_id}' vs current_user.id='{current_user.id}'")
+        
         # Add detailed debug logging
         logger.info(f"Goal user_id: '{goal.user_id}', type: {type(goal.user_id)}")
         logger.info(f"Current user: '{current_user.id}', type: {type(current_user.id)}")
@@ -298,8 +302,13 @@ async def read_goal(
             logger.info(f"Converted goal_uuid: {goal_uuid}, type: {type(goal_uuid)}")
             logger.info(f"Converted user_uuid: {user_uuid}, type: {type(user_uuid)}")
             
-            # Compare as UUID objects
-            if goal_uuid != user_uuid:
+            # Non-hyphenated comparison
+            clean_goal_id = re.sub(r'[^a-zA-Z0-9]', '', str(goal_uuid)).lower()
+            clean_user_id = re.sub(r'[^a-zA-Z0-9]', '', str(user_uuid)).lower()
+            logger.info(f"Clean comparison: '{clean_goal_id}' vs '{clean_user_id}' = {clean_goal_id == clean_user_id}")
+            
+            # Compare using clean UUIDs without hyphens
+            if clean_goal_id != clean_user_id:
                 logger.error(f"Authorization failed (UUID comparison): Goal User '{goal_uuid}' vs Current User '{user_uuid}'")
                 raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         except ValueError as e:
@@ -307,8 +316,8 @@ async def read_goal(
             logger.warning(f"UUID conversion failed: {e}, falling back to string comparison")
             
             # Try different string comparison methods
-            goal_id_str = str(goal.user_id).lower().replace('-', '')
-            user_id_str = str(current_user.id).lower().replace('-', '')
+            goal_id_str = re.sub(r'[^a-zA-Z0-9]', '', str(goal.user_id)).lower()
+            user_id_str = re.sub(r'[^a-zA-Z0-9]', '', str(current_user.id)).lower()
             
             logger.info(f"Normalized goal_id_str: '{goal_id_str}'")
             logger.info(f"Normalized user_id_str: '{user_id_str}'")
