@@ -1,8 +1,12 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import Field, validator
+from typing import Optional, List, Any, Union
 from datetime import datetime
+import json
+from uuid import UUID
 
-class MetricBase(BaseModel):
+from .base import BaseModelWithValidators
+
+class MetricBase(BaseModelWithValidators):
     title: str
     description: Optional[str] = None
     unit: str
@@ -11,7 +15,7 @@ class MetricBase(BaseModel):
 class MetricCreate(MetricBase):
     pass
 
-class MetricUpdate(BaseModel):
+class MetricUpdate(BaseModelWithValidators):
     title: Optional[str] = None
     description: Optional[str] = None
     unit: Optional[str] = None
@@ -23,7 +27,9 @@ class Metric(MetricBase):
     current_value: float = 0
     created_at: datetime
     updated_at: datetime
-    user_id: int = 1
+    user_id: str = "1"
+    goal_id: Optional[int] = None
+    contributions_list: str = "[]"
 
     class Config:
         from_attributes = True

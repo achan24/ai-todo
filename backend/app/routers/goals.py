@@ -21,10 +21,19 @@ router = APIRouter(
 def prepare_metric_for_response(metric: Metric) -> Dict[str, Any]:
     """Convert metric data for frontend response"""
     # Parse contributions list
-    contributions = json.loads(metric.contributions_list) if isinstance(metric.contributions_list, str) else (metric.contributions_list or [])
+    try:
+        if isinstance(metric.contributions_list, str) and metric.contributions_list:
+            contributions = json.loads(metric.contributions_list)
+        elif isinstance(metric.contributions_list, list):
+            contributions = metric.contributions_list
+        else:
+            contributions = []
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(f"Invalid contributions_list for metric {metric.id}: {metric.contributions_list}")
+        contributions = []
     
     # Calculate current value from all contributions
-    current_value = sum(float(c["value"]) for c in contributions)
+    current_value = sum(float(c["value"]) for c in contributions) if contributions else 0.0
     
     data = {
         "id": metric.id,
@@ -37,7 +46,7 @@ def prepare_metric_for_response(metric: Metric) -> Dict[str, Any]:
         "goal_id": metric.goal_id,
         "created_at": metric.created_at,
         "updated_at": metric.updated_at,
-        "contributions_list": json.dumps(contributions)
+        "contributions_list": json.dumps(contributions)  # Always store as JSON string
     }
     return data
 
@@ -121,19 +130,7 @@ def prepare_goal_for_response(goal):
             metric_dicts = []
             for metric in metrics:
                 try:
-                    metric_dict = {
-                        "id": metric.id,
-                        "name": metric.name,
-                        "description": metric.description,
-                        "type": metric.type,
-                        "unit": metric.unit,
-                        "target_value": metric.target_value,
-                        "current_value": metric.current_value,
-                        "contributions_list": getattr(metric, "contributions_list", []),
-                        "created_at": metric.created_at,
-                        "updated_at": metric.updated_at,
-                        "goal_id": metric.goal_id
-                    }
+                    metric_dict = prepare_metric_for_response(metric)
                     metric_dicts.append(metric_dict)
                 except Exception as e:
                     logger.error(f"Error processing metric {metric.id}: {str(e)}")

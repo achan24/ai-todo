@@ -1,8 +1,10 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import Field, validator
 from datetime import datetime
 from enum import Enum
 import json
+from uuid import UUID
+from .base import BaseModelWithValidators
 from .task import Task
 from .experience import Experience
 from .strategy import Strategy
@@ -18,7 +20,7 @@ def encode_json_field(v):
         return json.dumps(v)
     return v
 
-class MetricBase(BaseModel):
+class MetricBase(BaseModelWithValidators):
     name: str
     description: str = ""
     type: str  # Changed from MetricType to str to match frontend
@@ -35,7 +37,7 @@ class MetricBase(BaseModel):
 class MetricCreate(MetricBase):
     pass
 
-class MetricUpdate(BaseModel):
+class MetricUpdate(BaseModelWithValidators):
     name: Optional[str] = None
     description: Optional[str] = None
     type: Optional[str] = None
@@ -64,7 +66,7 @@ class Metric(MetricBase):
             list: encode_json_field
         }
 
-class GoalBase(BaseModel):
+class GoalBase(BaseModelWithValidators):
     title: str
     description: str | None = None
     priority: str | None = None  # high, medium, low
@@ -74,7 +76,7 @@ class GoalBase(BaseModel):
 class GoalCreate(GoalBase):
     pass
 
-class GoalUpdate(BaseModel):
+class GoalUpdate(BaseModelWithValidators):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[str] = None
@@ -96,10 +98,3 @@ class Goal(GoalBase):
 
     class Config:
         from_attributes = True
-        
-        @classmethod
-        def from_orm(cls, obj):
-            # Convert UUID to string if needed
-            if hasattr(obj, 'user_id') and hasattr(obj.user_id, 'hex'):
-                obj.user_id = str(obj.user_id)
-            return super().from_orm(obj)

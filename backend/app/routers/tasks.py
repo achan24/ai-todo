@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import logging
 from fastapi.responses import JSONResponse
 from datetime import datetime
@@ -33,13 +33,14 @@ async def get_tasks(
         logger.info("Fetching tasks with params: skip=%d, limit=%d, completed=%s", skip, limit, completed)
         tasks = await task_service.get_tasks(db, skip=skip, limit=limit, completed=completed, user_id=current_user.id)
         
-        # Ensure subtasks and tags are never None
+        # Convert tasks to dictionaries with proper UUID handling
+        task_dicts = []
         for task in tasks:
-            task.subtasks = task.subtasks or []
-            task.tags = task.tags or []
+            task_dict = task_service.prepare_task_for_response(task)
+            task_dicts.append(task_dict)
             
         logger.info("Successfully fetched %d tasks", len(tasks))
-        return tasks
+        return task_dicts
     except Exception as e:
         logger.error("Error fetching tasks: %s", str(e), exc_info=True)
         return JSONResponse(
@@ -52,7 +53,8 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db), current_u
     """Create a new task"""
     try:
         logger.info("Creating new task: %s", task.title)
-        return await task_service.create_task(db, task, user_id=current_user.id)
+        db_task = await task_service.create_task(db, task, user_id=current_user.id)
+        return task_service.prepare_task_for_response(db_task)
     except Exception as e:
         logger.error("Error creating task: %s", str(e), exc_info=True)
         return JSONResponse(
@@ -66,9 +68,7 @@ async def get_task(task_id: int, db: Session = Depends(get_db), current_user: Us
     try:
         logger.info("Fetching task with id: %d", task_id)
         task = await task_service.get_task(db, task_id, user_id=current_user.id)
-        task.subtasks = task.subtasks or []
-        task.tags = task.tags or []
-        return task
+        return task_service.prepare_task_for_response(task)
     except Exception as e:
         logger.error("Error fetching task %d: %s", task_id, str(e), exc_info=True)
         return JSONResponse(
@@ -81,7 +81,8 @@ async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_
     """Update a task"""
     try:
         logger.info("Updating task %d", task_id)
-        return await task_service.update_task(db, task_id, task, user_id=current_user.id)
+        updated_task = await task_service.update_task(db, task_id, task, user_id=current_user.id)
+        return task_service.prepare_task_for_response(updated_task)
     except Exception as e:
         logger.error("Error updating task %d: %s", task_id, str(e), exc_info=True)
         return JSONResponse(

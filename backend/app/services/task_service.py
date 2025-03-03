@@ -226,6 +226,47 @@ def calculate_task_priority_score(task: Task, completion_patterns: dict, current
     
     return score
 
+def prepare_task_for_response(task):
+    """
+    Prepare a task for response by converting UUID to string and ensuring proper formatting.
+    This prevents Pydantic validation errors when returning task objects.
+    """
+    # Convert UUID to string if needed
+    user_id = task.user_id
+    if hasattr(user_id, 'hex'):  # Check if it's a UUID object
+        user_id = str(user_id)
+    
+    # Create a dictionary representation of the task
+    task_dict = {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "completed": task.completed,
+        "priority": task.priority_safe,  # Use the safe property
+        "due_date": task.due_date,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "user_id": user_id,  # Use the converted user_id
+        "parent_id": task.parent_id,
+        "estimated_minutes": task.estimated_minutes,
+        "goal_id": task.goal_id,
+        "metric_id": task.metric_id,
+        "contribution_value": getattr(task, "contribution_value", None),
+        "completion_time": getattr(task, "completion_time", None),
+        "completion_order": getattr(task, "completion_order", None),
+        "tags": getattr(task, "tags", []) or [],
+        "subtasks": []
+    }
+    
+    # Process subtasks if they exist
+    if hasattr(task, "subtasks") and task.subtasks:
+        subtasks = []
+        for subtask in task.subtasks:
+            subtasks.append(prepare_task_for_response(subtask))
+        task_dict["subtasks"] = subtasks
+    
+    return task_dict
+
 async def get_next_task(db: Session, user_id: str) -> TaskWithAIRecommendation:
     """Get AI recommended next task based on multiple factors and learning"""
     # Get all incomplete tasks
@@ -259,6 +300,6 @@ async def get_next_task(db: Session, user_id: str) -> TaskWithAIRecommendation:
         recommended_task.tags = []
     
     return TaskWithAIRecommendation(
-        **recommended_task.__dict__,
+        **prepare_task_for_response(recommended_task),
         ai_confidence=confidence
     )

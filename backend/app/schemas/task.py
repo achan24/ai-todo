@@ -1,6 +1,9 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Union, Literal
+from pydantic import Field, validator
+from typing import Optional, List, Union, Literal, Any
 from datetime import datetime
+from uuid import UUID
+
+from .base import BaseModelWithValidators
 
 # Define priority type as a literal union for API validation
 PriorityType = Union[int, Literal["high", "medium", "low"]]
@@ -10,7 +13,7 @@ PRIORITY_HIGH = 1
 PRIORITY_MEDIUM = 2
 PRIORITY_LOW = 3
 
-class TaskBase(BaseModel):
+class TaskBase(BaseModelWithValidators):
     title: str
     description: Optional[str] = None
     priority: PriorityType = "medium"
@@ -41,7 +44,7 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     pass
 
-class TaskUpdate(BaseModel):
+class TaskUpdate(BaseModelWithValidators):
     title: Optional[str] = None
     description: Optional[str] = None
     completed: Optional[bool] = None
