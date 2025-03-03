@@ -12,6 +12,7 @@ from ..models.task import Task
 from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema, MetricCreate, Metric as MetricSchema
 from ..schemas.task import TaskCreate, Task as TaskSchema
 from ..core.supabase_auth import get_current_user
+from ..core.utils import compare_user_ids
 
 router = APIRouter(
     prefix="/goals",
@@ -275,8 +276,13 @@ async def read_goal(
         if not goal:
             raise HTTPException(status_code=404, detail="Goal not found")
         
+        # Add debug logging
+        logger.info(f"Goal user_id: {goal.user_id}, type: {type(goal.user_id)}")
+        logger.info(f"Current user: {current_user}, type: {type(current_user)}")
+        
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user):
+        if not compare_user_ids(goal.user_id, current_user):
+            logger.warning(f"Authorization failed: {goal.user_id} != {current_user}")
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Convert goal to dictionary to avoid detached instance errors
@@ -304,7 +310,7 @@ async def update_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to update this goal
-        if str(goal.user_id) != str(current_user):
+        if not compare_user_ids(goal.user_id, current_user):
             raise HTTPException(status_code=403, detail="Not authorized to update this goal")
         
         # Update goal fields
@@ -339,7 +345,7 @@ async def delete_goal(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to delete this goal
-        if str(goal.user_id) != str(current_user):
+        if not compare_user_ids(goal.user_id, current_user):
             raise HTTPException(status_code=403, detail="Not authorized to delete this goal")
         
         # Delete the goal
@@ -368,7 +374,7 @@ async def get_goal_tasks(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user):
+        if not compare_user_ids(goal.user_id, current_user):
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Get tasks for the goal
@@ -413,7 +419,7 @@ async def create_goal_task(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user):
+        if not compare_user_ids(goal.user_id, current_user):
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Create new task
@@ -468,7 +474,7 @@ async def create_metric(
             raise HTTPException(status_code=404, detail="Goal not found")
         
         # Check if the user has permission to access this goal
-        if str(goal.user_id) != str(current_user):
+        if not compare_user_ids(goal.user_id, current_user):
             raise HTTPException(status_code=403, detail="Not authorized to access this goal")
         
         # Create new metric
