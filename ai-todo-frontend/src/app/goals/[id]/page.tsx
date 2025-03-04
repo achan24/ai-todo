@@ -1249,13 +1249,6 @@ export default function GoalPage() {
             >
               Back to Goals
             </Button>
-            <Button 
-              variant="contained" 
-              color="error"
-              onClick={handleDeleteGoal}
-            >
-              Delete Goal
-            </Button>
           </div>
 
           {/* Description */}

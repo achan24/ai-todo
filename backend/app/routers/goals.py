@@ -142,8 +142,73 @@ def prepare_goal_for_response(goal):
         except Exception as e:
             logger.error(f"Error getting metrics for goal {goal.id}: {str(e)}")
         
-        # Skip experiences, strategies, and conversations if they have schema issues
-        # We'll just return empty lists for these
+        # Add experiences
+        try:
+            from ..models.experience import Experience
+            fresh_db = get_fresh_db()
+            experiences = fresh_db.query(Experience).filter(Experience.goal_id == goal.id).all()
+            experience_dicts = []
+            for exp in experiences:
+                try:
+                    experience_dict = {
+                        "id": exp.id,
+                        "content": exp.content,
+                        "type": exp.type,
+                        "created_at": exp.created_at,
+                        "goal_id": exp.goal_id
+                    }
+                    experience_dicts.append(experience_dict)
+                except Exception as e:
+                    logger.error(f"Error processing experience {exp.id}: {str(e)}")
+            goal_dict["experiences"] = experience_dicts
+            fresh_db.close()
+        except Exception as e:
+            logger.error(f"Error getting experiences for goal {goal.id}: {str(e)}")
+            
+        # Add strategies
+        try:
+            from ..models.strategy import Strategy
+            fresh_db = get_fresh_db()
+            strategies = fresh_db.query(Strategy).filter(Strategy.goal_id == goal.id).all()
+            strategy_dicts = []
+            for strat in strategies:
+                try:
+                    strategy_dict = {
+                        "id": strat.id,
+                        "title": strat.title,
+                        "steps": strat.steps,
+                        "created_at": strat.created_at,
+                        "goal_id": strat.goal_id
+                    }
+                    strategy_dicts.append(strategy_dict)
+                except Exception as e:
+                    logger.error(f"Error processing strategy {strat.id}: {str(e)}")
+            goal_dict["strategies"] = strategy_dicts
+            fresh_db.close()
+        except Exception as e:
+            logger.error(f"Error getting strategies for goal {goal.id}: {str(e)}")
+            
+        # Add conversations
+        try:
+            from ..models.conversation import Conversation, ConversationMessage
+            fresh_db = get_fresh_db()
+            conversations = fresh_db.query(Conversation).filter(Conversation.goal_id == goal.id).all()
+            conversation_dicts = []
+            for conv in conversations:
+                try:
+                    conversation_dict = {
+                        "id": conv.id,
+                        "content": conv.title,  # Use title as content for simplicity
+                        "created_at": conv.created_at,
+                        "goal_id": conv.goal_id
+                    }
+                    conversation_dicts.append(conversation_dict)
+                except Exception as e:
+                    logger.error(f"Error processing conversation {conv.id}: {str(e)}")
+            goal_dict["conversations"] = conversation_dicts
+            fresh_db.close()
+        except Exception as e:
+            logger.error(f"Error getting conversations for goal {goal.id}: {str(e)}")
         
         try:
             fresh_db = get_fresh_db()
