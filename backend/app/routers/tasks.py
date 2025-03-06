@@ -170,10 +170,19 @@ async def toggle_star(task_id: int, db: Session = Depends(get_db)):
         logger.error(f"Error toggling star status for task {task_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error toggling star status: {str(e)}")
 
+from datetime import datetime as dt
+
+class ScheduleTaskRequest(BaseModel):
+    scheduled_time: str
+
 @router.patch("/{task_id}/schedule", response_model=Task)
-async def schedule_task(task_id: int, scheduled_time: Optional[datetime] = None, db: Session = Depends(get_db)):
+async def schedule_task(task_id: int, request: ScheduleTaskRequest, db: Session = Depends(get_db)):
     """Schedule a task for a specific time"""
     try:
+        # Convert ISO string to Python datetime object
+        scheduled_time_str = request.scheduled_time
+        scheduled_time = dt.fromisoformat(scheduled_time_str.replace('Z', '+00:00')) if scheduled_time_str else None
+        
         logger.info(f"Scheduling task {task_id} for {scheduled_time}")
         task = await task_service.get_task(db, task_id=task_id, user_id=1)
         if not task:
