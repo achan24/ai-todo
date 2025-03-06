@@ -8,6 +8,8 @@ import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import {
   Container,
   Typography,
@@ -125,6 +127,7 @@ interface TaskItemProps {
   onEdit: (task: Task) => void;
   onDelete: (taskId: number, title: string) => void;
   showDates: boolean;
+  onToggleStar?: (taskId: number) => void;
 }
 
 const TaskItem = ({ 
@@ -137,7 +140,8 @@ const TaskItem = ({
   onToggleComplete,
   onEdit,
   onDelete,
-  showDates
+  showDates,
+  onToggleStar
 }: TaskItemProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showBreakdownDialog, setShowBreakdownDialog] = useState(false);
@@ -323,6 +327,22 @@ const TaskItem = ({
                   }}
                 />
               )}
+              {onToggleStar && (
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleStar(task.id);
+                  }}
+                  size="small"
+                  className={task.is_starred ? "text-yellow-500" : "text-gray-400"}
+                >
+                  {task.is_starred ? (
+                    <StarIcon className="h-4 w-4" />
+                  ) : (
+                    <StarBorderIcon className="h-4 w-4" />
+                  )}
+                </IconButton>
+              )}
               <IconButton
                 onClick={(e) => {
                   e.stopPropagation();
@@ -370,6 +390,7 @@ const TaskItem = ({
           onEdit={onEdit}
           onDelete={onDelete}
           showDates={showDates}
+          onToggleStar={onToggleStar}
         />
       ))}
       <TaskBreakdownDialog
@@ -630,6 +651,39 @@ export default function GoalPage() {
       });
     } catch (error) {
       console.error('Error updating task:', error);
+    }
+  };
+
+  const toggleTaskStar = async (taskId: number) => {
+    try {
+      // Call the star toggle endpoint
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}/star`, {
+        method: 'PATCH',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update task star status');
+      }
+      
+      const updatedTask = await response.json();
+      
+      // Update task star status in state
+      setTasks(prevTasks => {
+        const updateTaskStar = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, is_starred: updatedTask.is_starred };
+            }
+            if (task.subtasks) {
+              return { ...task, subtasks: updateTaskStar(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        return updateTaskStar(prevTasks);
+      });
+    } catch (error) {
+      console.error('Error toggling star status:', error);
     }
   };
 
@@ -1679,6 +1733,7 @@ export default function GoalPage() {
                   onEdit={setEditingTask}
                   onDelete={handleDeleteTask}
                   showDates={showDates}
+                  onToggleStar={toggleTaskStar}
                 />
               ))}
             </List>

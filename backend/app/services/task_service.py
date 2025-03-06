@@ -19,11 +19,31 @@ async def get_tasks(db: Session, user_id: int, skip: int = 0, limit: int = 100, 
         query = query.filter(Task.completed == completed)
     
     tasks = query.offset(skip).limit(limit).all()
-    # Ensure tags is never None
+    
+    # Process all tasks and their subtasks
     for task in tasks:
-        if task.tags is None:
-            task.tags = []
+        process_task_fields(task)
+    
     return tasks
+
+def process_task_fields(task):
+    """Ensure all task fields are properly initialized"""
+    # Ensure tags is never None
+    if task.tags is None:
+        task.tags = []
+    
+    # Ensure is_starred is initialized
+    if not hasattr(task, 'is_starred') or task.is_starred is None:
+        task.is_starred = False
+    
+    # Ensure scheduled_time is initialized (can be None)
+    if not hasattr(task, 'scheduled_time'):
+        task.scheduled_time = None
+    
+    # Process subtasks recursively
+    if task.subtasks:
+        for subtask in task.subtasks:
+            process_task_fields(subtask)
 
 async def create_task(db: Session, task: TaskCreate, user_id: int) -> Task:
     """Create a new task"""
@@ -36,7 +56,9 @@ async def create_task(db: Session, task: TaskCreate, user_id: int) -> Task:
         user_id=user_id,
         parent_id=task.parent_id,
         estimated_minutes=task.estimated_minutes,
-        goal_id=task.goal_id
+        goal_id=task.goal_id,
+        is_starred=task.is_starred,
+        scheduled_time=task.scheduled_time
     )
     db.add(db_task)
     db.commit()
@@ -50,8 +72,10 @@ async def get_task(db: Session, task_id: int, user_id: int) -> Task:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
-    if task.tags is None:
-        task.tags = []
+    
+    # Process task fields
+    process_task_fields(task)
+    
     return task
 
 async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_id: int) -> Task:

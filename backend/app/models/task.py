@@ -31,6 +31,8 @@ class Task(Base):
     completion_time = Column(DateTime, nullable=True)
     completion_order = Column(Integer, nullable=True)
     tags = Column(JSON, nullable=True, default=list)
+    is_starred = Column(Boolean, default=False)
+    scheduled_time = Column(DateTime, nullable=True)
     
     # Relationships
     subtasks = relationship("Task", 

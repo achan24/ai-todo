@@ -14,6 +14,8 @@ class TaskBase(BaseModel):
     goal_id: Optional[int] = None
     metric_id: Optional[int] = None
     contribution_value: Optional[float] = None
+    is_starred: bool = False
+    scheduled_time: Optional[datetime] = None
 
 class TaskCreate(TaskBase):
     pass
@@ -30,6 +32,8 @@ class TaskUpdate(BaseModel):
     goal_id: Optional[int] = None
     metric_id: Optional[int] = None
     contribution_value: Optional[float] = None
+    is_starred: Optional[bool] = None
+    scheduled_time: Optional[datetime] = None
 
 class Task(TaskBase):
     id: int

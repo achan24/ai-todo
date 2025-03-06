@@ -1,0 +1,47 @@
+/* Calendar Styles */
+.calendar-cell {
+  min-height: 60px;
+  border: 1px solid #e0e0e0;
+  padding: 4px;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.calendar-cell.drag-over {
+  background-color: rgba(25, 118, 210, 0.2);
+  box-shadow: inset 0 0 0 2px #1976d2;
+}
+
+.calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-event {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.calendar-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.task-item {
+  cursor: grab;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.task-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.task-item:active {
+  cursor: grabbing;
+}

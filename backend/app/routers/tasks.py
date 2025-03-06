@@ -147,3 +147,47 @@ async def get_task_breakdown(
     except Exception as e:
         logger.error(f"Error breaking down task {task_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/{task_id}/star", response_model=Task)
+async def toggle_star(task_id: int, db: Session = Depends(get_db)):
+    """Toggle the star status of a task"""
+    try:
+        logger.info(f"Toggling star status for task {task_id}")
+        task = await task_service.get_task(db, task_id=task_id, user_id=1)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        # Toggle the star status
+        task.is_starred = not task.is_starred
+        db.commit()
+        db.refresh(task)
+        
+        logger.info(f"Task {task_id} star status toggled to {task.is_starred}")
+        return task
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling star status for task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error toggling star status: {str(e)}")
+
+@router.patch("/{task_id}/schedule", response_model=Task)
+async def schedule_task(task_id: int, scheduled_time: Optional[datetime] = None, db: Session = Depends(get_db)):
+    """Schedule a task for a specific time"""
+    try:
+        logger.info(f"Scheduling task {task_id} for {scheduled_time}")
+        task = await task_service.get_task(db, task_id=task_id, user_id=1)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        # Update the scheduled time
+        task.scheduled_time = scheduled_time
+        db.commit()
+        db.refresh(task)
+        
+        logger.info(f"Task {task_id} scheduled for {scheduled_time}")
+        return task
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error scheduling task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error scheduling task: {str(e)}")

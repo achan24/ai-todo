@@ -8,6 +8,7 @@ from ..models.goal import Goal, Metric
 from ..models.task import Task
 from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema, MetricCreate, Metric as MetricSchema
 from ..schemas.task import TaskCreate, Task as TaskSchema
+from ..services.task_service import process_task_fields
 
 router = APIRouter(
     prefix="/goals",
@@ -51,9 +52,42 @@ def prepare_goal_for_response(goal):
     """Recursively prepare all metrics in a goal and its subgoals"""
     if goal.metrics:
         goal.metrics = prepare_metrics_for_response(goal.metrics)
+    
+    # Process all tasks in the goal
+    if goal.tasks:
+        for task in goal.tasks:
+            process_task_fields(task)
+    
+    # Process subgoals recursively
     for subgoal in goal.subgoals:
+        # Process metrics in subgoal
+        if subgoal.metrics:
+            subgoal.metrics = prepare_metrics_for_response(subgoal.metrics)
+        
+        # Process tasks in subgoal
+        if subgoal.tasks:
+            for task in subgoal.tasks:
+                process_task_fields(task)
+        
+        # Continue recursion for deeper subgoals
         prepare_goal_for_response(subgoal)
+    
     return goal
+
+def process_task_and_subtasks(task):
+    """Recursively process a task and all its subtasks to ensure fields are initialized"""
+    # Ensure is_starred is initialized
+    if not hasattr(task, 'is_starred') or task.is_starred is None:
+        task.is_starred = False
+    
+    # Ensure scheduled_time is initialized (can be None)
+    if not hasattr(task, 'scheduled_time'):
+        task.scheduled_time = None
+    
+    # Process subtasks recursively
+    if hasattr(task, 'subtasks') and task.subtasks:
+        for subtask in task.subtasks:
+            process_task_and_subtasks(subtask)
 
 @router.get("/", response_model=List[GoalSchema])
 async def get_goals(
@@ -184,7 +218,14 @@ async def get_goal_tasks(
     goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-    return db.query(Task).filter(Task.goal_id == goal_id).all()
+    
+    tasks = db.query(Task).filter(Task.goal_id == goal_id).all()
+    
+    # Process all tasks to ensure fields are properly initialized
+    for task in tasks:
+        process_task_fields(task)
+    
+    return tasks
 
 @router.post("/{goal_id}/tasks", response_model=TaskSchema)
 async def create_goal_task(
@@ -212,7 +253,9 @@ async def create_goal_task(
         parent_id=task.parent_id,
         estimated_minutes=task.estimated_minutes,
         goal_id=goal_id,
-        user_id=1  # Hardcoded for now
+        user_id=1,  # Hardcoded for now
+        is_starred=task.is_starred,
+        scheduled_time=task.scheduled_time
     )
     db.add(db_task)
     db.commit()
