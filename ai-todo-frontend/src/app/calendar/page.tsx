@@ -140,9 +140,9 @@ export default function CalendarPage() {
   };
 
   // Handle task drop from starred/all tasks list onto calendar
-  const handleExternalDrop = async (taskId: number, date: Date, hour: number) => {
+  const handleExternalDrop = async (taskId: number, date: Date, hour: number, minute: number = 0) => {
     try {
-      console.log('Handling external drop for task ID:', taskId, 'at date:', date, 'hour:', hour);
+      console.log('Handling external drop for task ID:', taskId, 'at date:', date, 'hour:', hour, 'minute:', minute);
       
       // Find the task in our state
       const task = tasks.find(t => t.id === taskId);
@@ -151,9 +151,9 @@ export default function CalendarPage() {
         return;
       }
       
-      // Create a date with the specified hour
+      // Create a date with the specified hour and minute
       const scheduledDateTime = new Date(date);
-      scheduledDateTime.setHours(hour, 0, 0, 0);
+      scheduledDateTime.setHours(hour, minute, 0, 0);
       const scheduledTime = scheduledDateTime.toISOString();
       
       // Optimistically update UI first for better user experience
@@ -246,23 +246,23 @@ export default function CalendarPage() {
   };
   
   // Handle drop for calendar cells
-  const handleDrop = (e: React.DragEvent, date: Date, hour: number) => {
+  const handleDrop = (e: React.DragEvent, date: Date, hour: number, minute: number = 0) => {
     e.preventDefault();
     if (e.currentTarget.classList.contains('calendar-cell')) {
       e.currentTarget.classList.remove('drag-over');
       
       const taskId = parseInt(e.dataTransfer.getData('text/plain'), 10);
       if (taskId && !isNaN(taskId)) {
-        handleExternalDrop(taskId, date, hour);
+        handleExternalDrop(taskId, date, hour, minute);
       }
     }
   };
   
   // Handle calendar event drop (rescheduling)
-  const handleEventDrop = async (taskId: number, newDate: Date, newHour: number) => {
+  const handleEventDrop = async (taskId: number, newDate: Date, newHour: number, newMinute: number = 0) => {
     try {
       // Call the same function we use for external drops
-      await handleExternalDrop(taskId, newDate, newHour);
+      await handleExternalDrop(taskId, newDate, newHour, newMinute);
     } catch (error) {
       console.error('Error handling event drop:', error);
     }
@@ -275,13 +275,15 @@ export default function CalendarPage() {
   const goToPreviousWeek = () => setCurrentDate(prev => addDays(prev, -7));
   const goToNextWeek = () => setCurrentDate(prev => addDays(prev, 7));
   
-  // Get hours for the day view
-  const getHours = () => {
-    const hours = [];
-    for (let i = 0; i < 24; i++) {
-      hours.push(i);
+  // Get time slots for the day view (15-minute intervals)
+  const getTimeSlots = () => {
+    const slots = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        slots.push({ hour, minute });
+      }
     }
-    return hours;
+    return slots;
   };
   
   // Get days for the week view
@@ -294,15 +296,37 @@ export default function CalendarPage() {
     return days;
   };
   
-  // Format hour for display
-  const formatHour = (hour: number) => {
-    if (hour === 0) return '12 AM';
-    if (hour === 12) return '12 PM';
-    return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+  // Format time slot for display
+  const formatTimeSlot = (hour: number, minute: number) => {
+    let hourDisplay;
+    if (hour === 0) hourDisplay = '12';
+    else if (hour === 12) hourDisplay = '12';
+    else hourDisplay = hour < 12 ? `${hour}` : `${hour - 12}`;
+    
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    const minuteDisplay = minute === 0 ? '00' : minute.toString();
+    
+    return `${hourDisplay}:${minuteDisplay} ${ampm}`;
   };
   
-  // Get events for a specific hour and day
-  const getEventsForHourAndDay = (date: Date, hour: number) => {
+  // Get events for a specific time slot and day
+  const getEventsForTimeSlot = (date: Date, hour: number, minute: number) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+    
+    return calendarEvents.filter(event => {
+      const eventDate = new Date(event.start);
+      return eventDate >= dayStart && 
+             eventDate <= dayEnd && 
+             eventDate.getHours() === hour &&
+             Math.floor(eventDate.getMinutes() / 15) * 15 === minute;
+    });
+  };
+  
+  // Get events for a specific hour (all 15-min slots) - used for week view
+  const getEventsForHour = (date: Date, hour: number) => {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date);
@@ -478,7 +502,7 @@ export default function CalendarPage() {
               {/* Day View */}
               {viewMode === 'day' && (
                 <TableContainer component={Paper} sx={{ maxHeight: '550px', overflow: 'auto' }}>
-                  <Table stickyHeader>
+                  <Table stickyHeader size="small">
                     <TableHead>
                       <TableRow>
                         <TableCell width="15%">Time</TableCell>
@@ -486,21 +510,27 @@ export default function CalendarPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {getHours().map(hour => {
-                        const events = getEventsForHourAndDay(currentDate, hour);
+                      {getTimeSlots().map(slot => {
+                        const { hour, minute } = slot;
+                        const events = getEventsForTimeSlot(currentDate, hour, minute);
+                        
+                        // Only show the hour at the first slot of each hour
+                        const showHour = minute === 0;
+                        
                         return (
-                          <TableRow key={hour}>
+                          <TableRow key={`${hour}-${minute}`}>
                             <TableCell>
-                              {formatHour(hour)}
+                              {formatTimeSlot(hour, minute)}
                             </TableCell>
                             <TableCell 
                               className="calendar-cell"
                               onDragOver={handleDragOver}
                               onDragLeave={handleDragLeave}
-                              onDrop={(e) => handleDrop(e, currentDate, hour)}
+                              onDrop={(e) => handleDrop(e, currentDate, hour, minute)}
                               sx={{
-                                height: '60px',
+                                height: '30px',
                                 backgroundColor: isToday(currentDate) ? 'rgba(25, 118, 210, 0.05)' : 'inherit',
+                                borderTop: showHour ? '1px solid #e0e0e0' : 'none',
                                 '&.drag-over': {
                                   backgroundColor: 'rgba(25, 118, 210, 0.2)',
                                   boxShadow: 'inset 0 0 0 2px #1976d2'
@@ -524,7 +554,7 @@ export default function CalendarPage() {
               {/* Week View */}
               {viewMode === 'week' && (
                 <TableContainer component={Paper} sx={{ maxHeight: '550px', overflow: 'auto' }}>
-                  <Table stickyHeader>
+                  <Table stickyHeader size="small">
                     <TableHead>
                       <TableRow>
                         <TableCell width="10%">Time</TableCell>
@@ -537,37 +567,46 @@ export default function CalendarPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {getHours().map(hour => (
-                        <TableRow key={hour}>
-                          <TableCell>{formatHour(hour)}</TableCell>
-                          {getDaysInWeek(currentDate).map(day => {
-                            const events = getEventsForHourAndDay(day, hour);
-                            return (
-                              <TableCell 
-                                key={day.toISOString() + hour}
-                                className="calendar-cell"
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, day, hour)}
-                                sx={{
-                                  height: '60px',
-                                  backgroundColor: isToday(day) ? 'rgba(25, 118, 210, 0.05)' : 'inherit',
-                                  '&.drag-over': {
-                                    backgroundColor: 'rgba(25, 118, 210, 0.2)',
-                                    boxShadow: 'inset 0 0 0 2px #1976d2'
-                                  }
-                                }}
-                              >
-                                {events.length > 0 ? (
-                                  <div className="calendar-events">
-                                    {events.map(event => renderEvent(event))}
-                                  </div>
-                                ) : null}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
+                      {getTimeSlots().map(slot => {
+                        const { hour, minute } = slot;
+                        // Only show the hour at the first slot of each hour
+                        const showHour = minute === 0;
+                        
+                        return (
+                          <TableRow key={`${hour}-${minute}`}>
+                            <TableCell>
+                              {formatTimeSlot(hour, minute)}
+                            </TableCell>
+                            {getDaysInWeek(currentDate).map(day => {
+                              const events = getEventsForTimeSlot(day, hour, minute);
+                              return (
+                                <TableCell 
+                                  key={`${day.toISOString()}-${hour}-${minute}`}
+                                  className="calendar-cell"
+                                  onDragOver={handleDragOver}
+                                  onDragLeave={handleDragLeave}
+                                  onDrop={(e) => handleDrop(e, day, hour, minute)}
+                                  sx={{
+                                    height: '30px',
+                                    backgroundColor: isToday(day) ? 'rgba(25, 118, 210, 0.05)' : 'inherit',
+                                    borderTop: showHour ? '1px solid #e0e0e0' : 'none',
+                                    '&.drag-over': {
+                                      backgroundColor: 'rgba(25, 118, 210, 0.2)',
+                                      boxShadow: 'inset 0 0 0 2px #1976d2'
+                                    }
+                                  }}
+                                >
+                                  {events.length > 0 ? (
+                                    <div className="calendar-events">
+                                      {events.map(event => renderEvent(event))}
+                                    </div>
+                                  ) : null}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
