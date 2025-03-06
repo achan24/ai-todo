@@ -437,15 +437,35 @@ export default function GoalPage() {
     fetchGoalData();
   }, [params.id]);
 
+  useEffect(() => {
+    if (goal) {
+      console.log('Goal updated in state:', goal);
+      console.log('Strategies in goal state:', goal.strategies);
+      console.log('Current strategy ID:', goal.current_strategy_id);
+    }
+  }, [goal]);
+
   const fetchGoalData = async () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching goal data for ID:', params.id);
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch goal');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to fetch goal: ${response.status} ${response.statusText}`);
       }
+      
       const data = await response.json();
+      console.log('Goal data fetched:', data);
+      console.log('Strategies in goal data:', data.strategies);
+      
+      if (!data) {
+        throw new Error('No data returned from API');
+      }
+      
       setGoal({
         ...data,
         metrics: data.metrics || [], // Ensure metrics is always an array
@@ -1022,6 +1042,7 @@ export default function GoalPage() {
 
   const handleSetCurrentStrategy = async (strategyId: number) => {
     try {
+      console.log('Setting current strategy ID:', strategyId);
       const response = await fetch(`${config.apiUrl}/api/goals/${params.id}`, {
         method: 'PUT',
         headers: {
@@ -1033,8 +1054,13 @@ export default function GoalPage() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error setting strategy:', errorText);
         throw new Error('Failed to update current strategy');
       }
+
+      const updatedGoal = await response.json();
+      console.log('Updated goal with new strategy:', updatedGoal);
 
       setGoal(prev => ({
         ...prev!,
@@ -1411,21 +1437,38 @@ export default function GoalPage() {
                 </div>
 
                 {/* Strategy Selection */}
-                <FormControl size="small" className="mb-4">
+                <FormControl size="small" className="mb-4" fullWidth>
+                  <InputLabel id="strategy-select-label">Current Strategy</InputLabel>
                   <Select
-                    value={goal?.current_strategy_id || ''}
-                    onChange={(e) => handleSetCurrentStrategy(e.target.value as number)}
-                    displayEmpty
+                    labelId="strategy-select-label"
+                    label="Current Strategy"
+                    value={goal?.current_strategy_id === null || goal?.current_strategy_id === undefined ? '' : goal.current_strategy_id}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      console.log('Strategy selected:', value);
+                      if (value !== '') {
+                        handleSetCurrentStrategy(value as number);
+                      } else {
+                        // Handle empty selection (set to null)
+                        handleSetCurrentStrategy(null as unknown as number);
+                      }
+                    }}
                     sx={{ minWidth: 200 }}
                   >
                     <MenuItem value="">
-                      <em>Select a strategy</em>
+                      <em>None</em>
                     </MenuItem>
-                    {goal?.strategies.map((strategy) => (
-                      <MenuItem key={strategy.id} value={strategy.id}>
-                        {strategy.title}
+                    {goal?.strategies && goal.strategies.length > 0 ? (
+                      goal.strategies.map((strategy) => (
+                        <MenuItem key={strategy.id} value={strategy.id}>
+                          {strategy.title}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem disabled>
+                        <em>No strategies available</em>
                       </MenuItem>
-                    ))}
+                    )}
                   </Select>
                 </FormControl>
 
