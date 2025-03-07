@@ -7,6 +7,7 @@ import enum
 from ..database import Base
 from .task import Task
 from .conversation import Conversation
+from .note import Note
 
 class MetricType(str, enum.Enum):
     target = "target"
@@ -52,3 +53,4 @@ class Goal(Base):
     experiences = relationship("Experience", back_populates="goal", cascade="all, delete-orphan")
     strategies = relationship("Strategy", back_populates="goal", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="goal", cascade="all, delete-orphan")
+    notes = relationship("Note", back_populates="goal", cascade="all, delete-orphan")

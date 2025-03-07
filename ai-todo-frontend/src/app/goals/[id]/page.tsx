@@ -41,6 +41,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditTaskDialog from '../../../components/EditTaskDialog';
 import TaskBreakdownDialog from '../../../components/TaskBreakdownDialog';
 import ConversationList from '@/components/ConversationList';
+import NotesSection from '@/components/NotesSection';
 import config from '@/config/config';
 
 interface Task {
@@ -1616,6 +1617,11 @@ export default function GoalPage() {
                 }));
               }}
             />
+          </div>
+
+          {/* Notes Section */}
+          <div className="mb-8">
+            <NotesSection goalId={params.id} />
           </div>
 
           {/* Quick Add Task */}
