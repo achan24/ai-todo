@@ -377,3 +377,5 @@ If data appears to be "not saving" but the database tables and relationships are
    - Test changes by verifying they appear in the UI, not just that the code compiles
 
    LITERAL EXAMPLE: When adding a bell icon for tasks with reminders, we initially modified src/components/TaskManager.tsx, but no changes appeared in the UI. After investigation, we discovered that the actual component rendering tasks was the TaskItem component in src/app/goals/[id]/page.tsx. Despite its name, TaskManager.tsx was not the active component managing task display in the current UI.
+
+   IMPORTANT: The correct location for modifying the task UI elements (including the bell icon) is in /Users/albert/Documents/Git/ai-todo/ai-todo-frontend/src/app/goals/[id]/page.tsx, specifically in the TaskItem component. DO NOT modify src/components/TaskManager.tsx for task UI changes as it is NOT the active component being used in the interface.

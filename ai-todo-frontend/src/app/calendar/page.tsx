@@ -73,8 +73,8 @@ export default function CalendarPage() {
         const data = await response.json();
         setTasks(data);
         
-        // Filter starred tasks
-        const starred = data.filter((task: Task) => task.is_starred);
+        // Filter starred tasks - only include non-completed tasks
+        const starred = data.filter((task: Task) => task.is_starred && !task.completed);
         setStarredTasks(starred);
         
         // Convert tasks with scheduled_time to calendar events
@@ -134,8 +134,68 @@ export default function CalendarPage() {
       } else {
         setStarredTasks(prev => prev.filter(task => task.id !== taskId));
       }
+      
+      // Update calendar events
+      setCalendarEvents(prev => 
+        prev.map(event => 
+          event.id === taskId.toString() ? { ...event, is_starred: updatedTask.is_starred } : event
+        )
+      );
     } catch (error) {
       console.error('Error toggling star status:', error);
+    }
+  };
+  
+  // Toggle task completion status
+  const toggleTaskCompletion = async (taskId: number) => {
+    try {
+      // Find the task to determine its current completion status
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error('Task not found:', taskId);
+        return;
+      }
+      
+      const newCompletionStatus = !task.completed;
+      
+      // Optimistically update UI first
+      // Update tasks state
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === taskId ? { ...task, completed: newCompletionStatus } : task
+        )
+      );
+      
+      // Update calendar events
+      setCalendarEvents(prev => 
+        prev.map(event => 
+          event.id === taskId.toString() ? { ...event, completed: newCompletionStatus } : event
+        )
+      );
+      
+      // If task is completed, remove from starred tasks
+      if (newCompletionStatus) {
+        setStarredTasks(prev => prev.filter(task => task.id !== taskId));
+      }
+      
+      // Make the API call using the PUT endpoint for updating tasks
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ completed: newCompletionStatus }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update task completion status');
+      }
+      
+      const updatedTask = await response.json();
+      console.log('Task completion status updated:', updatedTask);
+      
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
     }
   };
 
@@ -365,7 +425,16 @@ export default function CalendarPage() {
         }}
       >
         <div className="flex justify-between items-center">
-          <span>{event.title}</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={event.completed}
+              onChange={() => toggleTaskCompletion(parseInt(event.id))}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span>{event.title}</span>
+          </div>
           {event.is_starred && <span style={{ color: '#f57c00' }}>★</span>}
         </div>
       </div>
@@ -376,7 +445,10 @@ export default function CalendarPage() {
   const handleReceiveExternal = (info: any) => {
     if (info.draggedEl.getAttribute('data-task-id')) {
       const taskId = parseInt(info.draggedEl.getAttribute('data-task-id'), 10);
-      handleExternalDrop(taskId, info.date);
+      // Extract hour and minute from the date
+      const hour = info.date.getHours();
+      const minute = info.date.getMinutes();
+      handleExternalDrop(taskId, info.date, hour, minute);
       return true; // Indicate that we've handled this drop
     }
     return false;
@@ -728,6 +800,10 @@ export default function CalendarPage() {
         .calendar-event:active {
           opacity: 0.7;
           box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .calendar-event input[type="checkbox"] {
+          cursor: pointer;
         }
       `}</style>
     </div>

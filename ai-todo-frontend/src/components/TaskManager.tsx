@@ -182,10 +182,6 @@ const TaskItem = ({
                   <p className={`${level === 0 ? 'text-sm' : 'text-xs'} font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
                     {task.title}
                   </p>
-                  <BellAlertIcon 
-                    className={`${level === 0 ? 'h-5 w-5' : 'h-4 w-4'} ml-1 text-amber-500`} 
-                    title="Reminder indicator"
-                  />
                 </div>
                 <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
                   task.priority === 'high' ? 'bg-red-100 text-red-800' :
@@ -225,6 +221,16 @@ const TaskItem = ({
                   </span>
                 ))}
               </div>
+            )}
+            {task.has_reminders && (
+              <button
+                className="p-1 rounded-full hover:bg-gray-200"
+                title="Has reminders"
+              >
+                <BellAlertIcon 
+                  className={`${level === 0 ? 'h-4 w-4' : 'h-3.5 w-3.5'} text-amber-500`} 
+                />
+              </button>
             )}
             {onToggleStar && (
               <button

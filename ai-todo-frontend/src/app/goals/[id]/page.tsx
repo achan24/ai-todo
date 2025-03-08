@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import notificationService, { Reminder } from '@/services/NotificationService';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, TagIcon, ClockIcon, BellAlertIcon } from '@heroicons/react/24/solid';
 import AddIcon from '@mui/icons-material/Add';
@@ -44,6 +45,62 @@ import ConversationList from '@/components/ConversationList';
 import NotesSection from '@/components/NotesSection';
 import SituationsSection from '@/components/SituationsSection';
 import config from '@/config/config';
+
+// Task Reminder Tooltip component
+const TaskReminderTooltip = ({ taskId }: { taskId: number }) => {
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReminders = async () => {
+      setLoading(true);
+      const taskReminders = await notificationService.getRemindersForTask(taskId);
+      setReminders(taskReminders);
+      setLoading(false);
+    };
+
+    fetchReminders();
+  }, [taskId]);
+
+  const formatReminderTime = (dateTimeStr: string) => {
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString(undefined, { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  return (
+    <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg overflow-hidden z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+      <div className="bg-amber-500 text-white p-2">
+        <p className="text-sm font-bold">Task Reminders ({reminders.length})</p>
+      </div>
+      <div className="max-h-64 overflow-y-auto">
+        {loading ? (
+          <div className="p-2 text-center text-gray-500">
+            Loading reminders...
+          </div>
+        ) : reminders.length > 0 ? (
+          reminders.map((reminder) => (
+            <div key={reminder.id} className="p-2 border-b border-gray-100">
+              <p className="text-sm font-semibold truncate">{reminder.title}</p>
+              <p className="text-xs text-gray-500">{formatReminderTime(reminder.reminder_time)}</p>
+              {reminder.message && (
+                <p className="text-xs text-gray-600 mt-1 truncate">{reminder.message}</p>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="p-2 text-center text-gray-500">
+            No active reminders
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface Task {
   id: number;
@@ -236,12 +293,6 @@ const TaskItem = ({
                   >
                     {task.title}
                   </Typography>
-                  {task.has_reminders && (
-                    <BellAlertIcon 
-                      className={`${level === 0 ? 'h-5 w-5' : 'h-4 w-4'} ml-1 text-amber-500`} 
-                      title="This task has reminders"
-                    />
-                  )}
                 </div>
                 {task.estimated_minutes && (
                   <div className="flex items-center text-gray-500 text-sm">
@@ -339,6 +390,18 @@ const TaskItem = ({
                   }}
                 />
               )}
+              {task.has_reminders && (
+                <div className="relative group">
+                  <IconButton
+                    size="small"
+                    title="This task has reminders"
+                    sx={{ color: '#f59e0b' }} // amber-500 color
+                  >
+                    <BellAlertIcon className="h-4 w-4" />
+                  </IconButton>
+                  <TaskReminderTooltip taskId={task.id} />
+                </div>
+              )}
               {onToggleStar && (
                 <IconButton
                   onClick={(e) => {
@@ -346,7 +409,7 @@ const TaskItem = ({
                     onToggleStar(task.id);
                   }}
                   size="small"
-                  className={task.is_starred ? "text-yellow-500" : "text-gray-400"}
+                  sx={{ color: task.is_starred ? '#eab308' : '#9ca3af' }} // yellow-500 or gray-400
                 >
                   {task.is_starred ? (
                     <StarIcon className="h-4 w-4" />
@@ -361,7 +424,7 @@ const TaskItem = ({
                   setShowBreakdownDialog(true);
                 }}
                 size="small"
-                className="text-purple-600"
+                sx={{ color: '#9333ea' }} // purple-600 color
               >
                 <AutoFixHighIcon className="h-4 w-4" />
               </IconButton>
@@ -371,7 +434,10 @@ const TaskItem = ({
                   onEdit(task);
                 }}
                 size="small"
-                className="text-gray-600 hover:text-blue-600"
+                sx={{ 
+                  color: '#4b5563', // gray-600
+                  '&:hover': { color: '#2563eb' } // blue-600 on hover
+                }}
               >
                 <PencilIcon className="h-4 w-4" />
               </IconButton>
@@ -381,7 +447,7 @@ const TaskItem = ({
                   onDelete(task.id, task.title);
                 }}
                 size="small"
-                className="text-red-600"
+                sx={{ color: '#dc2626' }} // red-600 color
               >
                 <TrashIcon className="h-4 w-4" />
               </IconButton>
