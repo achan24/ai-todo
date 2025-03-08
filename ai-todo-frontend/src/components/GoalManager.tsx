@@ -189,7 +189,7 @@ const GoalItem = ({
           </div>
         </div>
       </div>
-      {hasSubgoals && !isCollapsed && (
+      {hasSubgoals && !isCollapsed && goal.subgoals && (
         <div>
           {goal.subgoals.map(subgoal => (
             <GoalItem 
@@ -299,6 +299,9 @@ export default function GoalManager() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showDeleteConfirmationInput, setShowDeleteConfirmationInput] = useState(false);
   const [collapsedGoals, setCollapsedGoals] = useState<Set<number>>(new Set());
+  const [goalOrder, setGoalOrder] = useState<number[]>([]);
+  const [isReordering, setIsReordering] = useState(false);
+  const [draggedGoalId, setDraggedGoalId] = useState<number | null>(null);
   const router = useRouter();
 
   const toggleCollapsed = (goalId: number) => {
@@ -320,9 +323,10 @@ export default function GoalManager() {
     // Hot streak - 3 consecutive daily tasks completed
     const recentCompletedTasks = goal.tasks?.filter(t => 
       t.completed && 
-      new Date(t.completed_at!).getTime() > now.getTime() - (3 * 24 * 60 * 60 * 1000)
+      t.completed_at && 
+      new Date(t.completed_at).getTime() > now.getTime() - (3 * 24 * 60 * 60 * 1000)
     );
-    if (recentCompletedTasks?.length >= 3) {
+    if (recentCompletedTasks && recentCompletedTasks.length >= 3) {
       badges.push('🔥');
     }
 
@@ -364,6 +368,18 @@ export default function GoalManager() {
       }
       const data = await response.json();
       setGoals(data);
+      
+      // Load or initialize goal order
+      const savedOrder = localStorage.getItem('goalOrder');
+      if (savedOrder) {
+        // Use saved order
+        setGoalOrder(JSON.parse(savedOrder));
+      } else {
+        // Create new order from top-level goals
+        const topLevelGoals = data.filter((g: Goal) => !g.parent_id).map((g: Goal) => g.id);
+        setGoalOrder(topLevelGoals);
+        localStorage.setItem('goalOrder', JSON.stringify(topLevelGoals));
+      }
     } catch (error) {
       console.error('Error fetching goals:', error);
     }
@@ -378,7 +394,14 @@ export default function GoalManager() {
   };
 
   const handleDragStart = (e: React.DragEvent, goalId: number) => {
-    e.dataTransfer.setData('goalId', goalId.toString());
+    if (isReordering) {
+      // When reordering, track the goal ID being dragged
+      setDraggedGoalId(goalId);
+      e.dataTransfer.setData('goalId', goalId.toString());
+    } else {
+      // Normal drag for nesting goals
+      e.dataTransfer.setData('goalId', goalId.toString());
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -400,30 +423,64 @@ export default function GoalManager() {
 
   const handleDrop = async (e: React.DragEvent, targetGoalId: number) => {
     e.preventDefault();
-    const draggedGoalId = parseInt(e.dataTransfer.getData('goalId'));
     
-    if (draggedGoalId === targetGoalId) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`http://localhost:8005/api/goals/${draggedGoalId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          parent_id: targetGoalId
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update goal');
+    if (isReordering) {
+      // Handle reordering
+      if (draggedGoalId === null) return;
+      if (draggedGoalId === targetGoalId) return;
+      
+      // Get current order or create one if it doesn't exist
+      const currentOrder = [...goalOrder];
+      if (currentOrder.length === 0) {
+        const topLevelGoals = goals.filter(g => !g.parent_id).map(g => g.id);
+        currentOrder.push(...topLevelGoals);
       }
-
-      fetchGoals();
-    } catch (error) {
-      console.error('Error updating goal:', error);
+      
+      // Remove the dragged goal from its current position
+      const newOrder = currentOrder.filter(id => id !== draggedGoalId);
+      
+      // Find the index of the target goal
+      const targetIndex = newOrder.indexOf(targetGoalId);
+      
+      // Insert the dragged goal at the new position
+      if (targetIndex !== -1) {
+        newOrder.splice(targetIndex, 0, draggedGoalId);
+      } else {
+        // If target not found, add to the end
+        newOrder.push(draggedGoalId);
+      }
+      
+      // Update state and save to localStorage
+      setGoalOrder(newOrder);
+      localStorage.setItem('goalOrder', JSON.stringify(newOrder));
+      setDraggedGoalId(null);
+    } else {
+      // Handle nesting goals (original functionality)
+      const draggedGoalId = parseInt(e.dataTransfer.getData('goalId'));
+      
+      if (draggedGoalId === targetGoalId) {
+        return;
+      }
+  
+      try {
+        const response = await fetch(`http://localhost:8005/api/goals/${draggedGoalId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            parent_id: targetGoalId
+          }),
+        });
+  
+        if (!response.ok) {
+          throw new Error('Failed to update goal');
+        }
+  
+        fetchGoals();
+      } catch (error) {
+        console.error('Error updating goal:', error);
+      }
     }
   };
 
@@ -614,9 +671,37 @@ export default function GoalManager() {
             </div>
           </div>
         </div>
-        {!isCollapsed && goal.subgoals && goal.subgoals.map(subgoal => renderGoal(subgoal, level + 1))}
+        {!isCollapsed && goal.subgoals ? goal.subgoals.map(subgoal => renderGoal(subgoal, level + 1)) : null}
       </div>
     );
+  };
+
+  // Toggle between reordering mode and normal mode
+  const toggleReorderingMode = () => {
+    setIsReordering(!isReordering);
+  };
+  
+  // Sort goals based on the stored order
+  const getSortedTopLevelGoals = () => {
+    // Get top-level goals
+    const topLevelGoals = goals.filter(goal => !goal.parent_id);
+    
+    // If we have no goals or no order, just return the goals as-is
+    if (topLevelGoals.length === 0 || goalOrder.length === 0) {
+      return topLevelGoals;
+    }
+    
+    // Sort according to the stored order
+    return [...topLevelGoals].sort((a, b) => {
+      const indexA = goalOrder.indexOf(a.id);
+      const indexB = goalOrder.indexOf(b.id);
+      
+      // If a goal is not in the order, put it at the end
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      
+      return indexA - indexB;
+    });
   };
 
   return (
@@ -626,22 +711,36 @@ export default function GoalManager() {
           <Typography variant="h4" component="h1" className="text-gray-900">
             Goals
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleCreateGoal}
-          >
-            New Goal
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant={isReordering ? "outlined" : "contained"}
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleCreateGoal}
+              disabled={isReordering}
+            >
+              New Goal
+            </Button>
+            <Button
+              variant={isReordering ? "contained" : "outlined"}
+              color={isReordering ? "secondary" : "primary"}
+              onClick={toggleReorderingMode}
+            >
+              {isReordering ? "Done" : "Reorder"}
+            </Button>
+          </div>
         </div>
+        
+        {isReordering && (
+          <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+            <Typography variant="body2">
+              Drag goals up or down to reorder them. Click "Done" when finished.
+            </Typography>
+          </div>
+        )}
 
         <List className="space-y-1">
-          {goals
-            .filter(goal => !goal.parent_id)
-            .map(goal => (
-              renderGoal(goal)
-            ))}
+          {getSortedTopLevelGoals().map(goal => renderGoal(goal))}
         </List>
       </Box>
 
