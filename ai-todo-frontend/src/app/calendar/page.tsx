@@ -37,6 +37,7 @@ interface Task {
   tags: string[];
   estimated_minutes?: number;
   subtasks: Task[];
+  metadata?: string; // JSON string for storing additional data
 }
 
 // Define the CalendarEvent interface
@@ -48,6 +49,9 @@ interface CalendarEvent {
   priority: 'high' | 'medium' | 'low';
   is_starred: boolean;
   completed: boolean;
+  timerActive?: boolean;
+  timerLastUpdated?: number; // Last time the timer was updated
+  elapsedTime?: number; // Total elapsed time in milliseconds
 }
 
 export default function CalendarPage() {
@@ -60,6 +64,57 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  
+  // Timer update interval
+  useEffect(() => {
+    // Update all active timers every second
+    const timerInterval = setInterval(() => {
+      setCalendarEvents(prev => {
+        const hasActiveTimers = prev.some(event => event.timerActive);
+        if (!hasActiveTimers) return prev; // No need to update if no timers are active
+        
+        const now = Date.now();
+        
+        return prev.map(event => {
+          if (event.timerActive && event.timerLastUpdated) {
+            // Calculate time since last update (max 2 seconds to prevent huge jumps after sleep)
+            const timeSinceLastUpdate = Math.min(now - event.timerLastUpdated, 2000);
+            const newElapsedTime = (event.elapsedTime || 0) + timeSinceLastUpdate;
+            
+            return { 
+              ...event, 
+              elapsedTime: newElapsedTime,
+              timerLastUpdated: now
+            };
+          }
+          return event;
+        });
+      });
+    }, 1000);
+    
+    // Handle visibility change (tab switching, computer sleep/wake)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // When page becomes visible again, update the last updated time
+        // without adding elapsed time to prevent jumps
+        setCalendarEvents(prev => {
+          return prev.map(event => {
+            if (event.timerActive) {
+              return { ...event, timerLastUpdated: Date.now() };
+            }
+            return event;
+          });
+        });
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(timerInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Fetch all tasks and convert to calendar events
   useEffect(() => {
@@ -85,6 +140,20 @@ export default function CalendarPage() {
             // Default end time is 1 hour after start time
             const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
             
+            // Extract timer data from metadata if available
+            let timerData = { elapsedTime: undefined, timerActive: false };
+            if (task.metadata) {
+              try {
+                const metadata = JSON.parse(task.metadata);
+                if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
+                  // Only use timer data if it has a non-zero elapsed time
+                  timerData = metadata.timerData;
+                }
+              } catch (e) {
+                console.error('Error parsing task metadata:', e);
+              }
+            }
+            
             return {
               id: task.id.toString(),
               title: task.title,
@@ -92,7 +161,10 @@ export default function CalendarPage() {
               end: endTime,
               priority: task.priority,
               is_starred: task.is_starred,
-              completed: task.completed
+              completed: task.completed,
+              elapsedTime: timerData.elapsedTime,
+              timerActive: task.completed ? false : timerData.timerActive, // Don't activate timer for completed tasks
+              timerLastUpdated: timerData.timerActive ? Date.now() : undefined
             };
           });
         
@@ -166,11 +238,19 @@ export default function CalendarPage() {
         )
       );
       
-      // Update calendar events
+      // Update calendar events and stop timer if task is completed
       setCalendarEvents(prev => 
-        prev.map(event => 
-          event.id === taskId.toString() ? { ...event, completed: newCompletionStatus } : event
-        )
+        prev.map(event => {
+          if (event.id === taskId.toString()) {
+            return { 
+              ...event, 
+              completed: newCompletionStatus,
+              // If completing the task, stop the timer
+              timerActive: newCompletionStatus ? false : event.timerActive 
+            };
+          }
+          return event;
+        })
       );
       
       // If task is completed, remove from starred tasks
@@ -197,6 +277,95 @@ export default function CalendarPage() {
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
+  };
+  
+  // Toggle timer for a task
+  const toggleTimer = async (eventId: string) => {
+    // Find the current event
+    const taskId = parseInt(eventId);
+    const currentEvent = calendarEvents.find(event => event.id === eventId);
+    if (!currentEvent) return;
+    
+    const now = Date.now();
+    let updatedEvent: CalendarEvent | undefined;
+    
+    // Update the calendar events state
+    setCalendarEvents(prev => {
+      return prev.map(event => {
+        if (event.id === eventId) {
+          if (event.timerActive) {
+            // Stopping the timer
+            updatedEvent = { 
+              ...event, 
+              timerActive: false,
+              // Keep the current elapsed time
+              timerLastUpdated: undefined
+            };
+            return updatedEvent;
+          } else {
+            // Starting the timer
+            updatedEvent = { 
+              ...event, 
+              timerActive: true,
+              timerLastUpdated: now,
+              // Keep existing elapsed time when resuming
+              elapsedTime: event.elapsedTime || 0
+            };
+            return updatedEvent;
+          }
+        }
+        return event;
+      });
+    });
+    
+    // If we have an updated event, save the timer data to the task
+    if (updatedEvent) {
+      try {
+        // Store the timer data in the task's metadata field
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        // Create or update metadata object
+        const metadata = task.metadata ? JSON.parse(task.metadata) : {};
+        metadata.timerData = {
+          elapsedTime: updatedEvent.elapsedTime || 0,
+          timerActive: updatedEvent.timerActive || false,
+          lastUpdated: now
+        };
+        
+        // Update the task with the new metadata
+        const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ metadata: JSON.stringify(metadata) }),
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to save timer data');
+        }
+      } catch (error) {
+        console.error('Error saving timer data:', error);
+      }
+    }
+  };
+  
+  // Format elapsed time as HH:MM:SS
+  const formatElapsedTime = (milliseconds?: number): string => {
+    // If milliseconds is undefined or 0, return empty string to avoid showing 00:00:00
+    if (milliseconds === undefined || milliseconds === 0) return '';
+    
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0')
+    ].join(':');
   };
 
   // Handle task drop from starred/all tasks list onto calendar
@@ -424,18 +593,48 @@ export default function CalendarPage() {
           if (task) handleDragStart(e, task);
         }}
       >
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={event.completed}
-              onChange={() => toggleTaskCompletion(parseInt(event.id))}
-              onClick={(e) => e.stopPropagation()}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <span>{event.title}</span>
+        <div className="flex flex-col">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={event.completed}
+                onChange={() => toggleTaskCompletion(parseInt(event.id))}
+                onClick={(e) => e.stopPropagation()}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span>{event.title}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {event.is_starred && <span style={{ color: '#f57c00' }}>★</span>}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleTimer(event.id);
+                }}
+                disabled={event.completed}
+                className={`px-2 py-1 text-xs rounded ${event.timerActive 
+                  ? 'bg-red-100 text-red-800' 
+                  : 'bg-green-100 text-green-800'} ${event.completed ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-80'}`}
+              >
+                {event.timerActive ? 'Stop' : 'Start'}
+              </button>
+            </div>
           </div>
-          {event.is_starred && <span style={{ color: '#f57c00' }}>★</span>}
+          
+          {/* Timer display - only show if timer is active or has been used and has non-zero time */}
+          {(event.timerActive || (event.elapsedTime && event.elapsedTime > 0)) && (
+            <div className="mt-1 text-xs font-mono">
+              {event.timerActive ? (
+                <>
+                  Time: {formatElapsedTime(event.elapsedTime) || '00:00:00'}
+                  <span className="ml-1 animate-pulse">●</span>
+                </>
+              ) : (
+                formatElapsedTime(event.elapsedTime) && `Time: ${formatElapsedTime(event.elapsedTime)}`
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -804,6 +1003,25 @@ export default function CalendarPage() {
         
         .calendar-event input[type="checkbox"] {
           cursor: pointer;
+        }
+        
+        .calendar-event button {
+          transition: all 0.2s;
+        }
+        
+        .calendar-event button:hover:not(:disabled) {
+          transform: translateY(-1px);
+        }
+        
+        @keyframes pulse {
+          0% { opacity: 0.5; }
+          50% { opacity: 1; }
+          100% { opacity: 0.5; }
+        }
+        
+        .animate-pulse {
+          animation: pulse 1s infinite;
+          color: #ef4444;
         }
       `}</style>
     </div>
