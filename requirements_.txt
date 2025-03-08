@@ -532,3 +532,160 @@ Goal completion rate: % of goals where at least one target metric is met.
 Milestone completion rate: % of milestones completed per goal.
 Task completion rate: % of todos linked to milestones/metrics successfully completed.
 Efficiency score improvements: % increase in results per time spent.
+
+
+
+
+
+
+Situational Growth & Analysis System - Full Feature Report
+
+This document consolidates all core requirements, features, and specifications from the discussion, ensuring a structured framework for developing the Situational Growth & Analysis System.
+
+🔹 Core Concept: Situations
+
+A Situation represents an experience that is either:
+
+Planned (Pre-Action) – Structuring an upcoming situation.
+Completed (Post-Action) – Reflecting on a past situation.
+Comparative (Growth Analysis) – Comparing multiple situations over time.
+Key Capabilities
+✅ Write a structured situation report (before or after an event).
+✅ Break a situation into phases for deeper analysis.
+✅ Compare similar situations to track improvement.
+✅ Visualize progress using a timeline with cards & comparison dots.
+✅ Analyze trends & AI-driven insights to optimize future performance.
+
+🔹 Situation Structure
+
+Each situation follows a standardized format for easy logging, retrieval, and comparison.
+
+1️⃣ Core Situation Data
+Field	Description
+Title	Short name for the situation.
+Date & Time	Start & end timestamps (if post-action).
+Type	Planned (pre-action) or Completed (post-action).
+Description	Overview of what happened or is expected to happen.
+Self-Rating	Performance score (1-10).
+Outcome	Success, Partial Success, or Failure.
+Key Lessons Learned	What worked, what didn’t, and future improvements.
+2️⃣ Phases (Breaking Down a Situation)
+Each situation is divided into phases, allowing for granular evaluation & comparison.
+
+Field	Description
+Phase Name	Identifies a key moment (e.g., "Opening," "Execution," "Reflection").
+Approach Used	The method or strategy applied in this phase.
+Effectiveness Score	Rated 1-10, based on how well this phase went.
+Response / Outcome	What happened as a result of this phase?
+Notes & Observations	Insights into what worked or failed.
+Example: Social Situation Breakdown
+Phase	Approach Used	Score	Outcome
+Opening	Asked about the event.	5/10	Felt awkward, neutral response.
+Small Talk	Discussed hobbies.	6/10	They engaged, but I had to carry the convo.
+Group Engagement	Joined an existing convo.	8/10	Felt natural, better flow.
+Phases allow you to compare the same stage across different situations.
+
+3️⃣ Comparison Report (Tracking Growth)
+A Comparison Report is automatically generated between two or more situations, highlighting trends, improvements, and recurring weak spots.
+
+Metric	Situation A	Situation B	Change
+Opening Score	5/10 (Awkward)	7/10 (Smooth)	+2
+Engagement Strategy	Joined convo	Started convo	More proactive
+Overall Confidence	5/10	8/10	+3
+AI Insights:
+💡 "You improved in making introductions, but engagement still fluctuates. Try leading with a personal observation instead of a question."
+
+🔹 Visual Timeline & Growth Tracking
+
+1️⃣ Timeline Structure
+Big Cards → Each situation is displayed as a large card, summarizing:
+Title, Date, Key Metrics, & Takeaways.
+Clicking expands full details.
+Comparison Dots → Small connectors between situations, summarizing:
+Improvement trends, AI insights, and key differences.
+Lines Connect Situations → Show progression over time.
+2️⃣ Example: Timeline with Cards & Dots
+🔳 [Networking Event - Feb 1]  
+   - Confidence: 5/10  
+   - Best Phase: Small Talk  
+   - Weakest Phase: Opening  
+   - Key Takeaway: "Joining convos worked better than initiating alone."
+
+🔘 [Comparison: Feb 1 → Feb 10]  
+   - Improvement: Confidence **+2**  
+   - Weakness: Still struggles with openings  
+   - AI Insight: "Try starting with a direct observation instead of a question."
+
+🔳 [Dinner Party - Feb 10]  
+   - Confidence: 7/10  
+   - Best Phase: Group Engagement  
+   - Weakest Phase: Opening  
+   - Key Takeaway: "Asking for opinions sparked better discussions."
+🔹 AI-Driven Insights & Automation
+
+1️⃣ AI Capabilities
+Auto-Summarize Situations → Extract key points & trends.
+Compare Situations → Identify growth trends across experiences.
+Suggest Strategy Improvements → Recommend better approaches.
+Predict Future Performance → Highlight weaknesses to improve.
+2️⃣ AI Prompt for Generating Situations
+*"Create a structured situation entry that serves either as a pre-action plan or a post-action report.
+
+Planned Situation (Pre-Action Mode):
+Define the situation, its purpose, and expected phases.
+Outline the intended approach, strategies, and key success criteria.
+Identify potential challenges and how they will be handled.
+Set measurable targets for evaluating performance.
+Completed Situation (Post-Action Mode):
+Capture what actually happened, including deviations from the plan.
+Break the experience into phases, if applicable, noting effectiveness and insights.
+Score key aspects (1-10) based on personal assessment.
+Compare to similar past situations to track improvement.
+Extract key lessons and strategies for future refinement.
+If applicable, generate a comparison report between a past and present situation, highlighting patterns, improvements, and areas to adjust for future scenarios."*
+
+🔹 Database Schema (Storage & Structure)
+
+To enable logging, retrieval, and AI analysis, the system requires structured database tables.
+
+1️⃣ Situations Table
+Field	Type	Description
+id	UUID	Unique identifier.
+user_id	Foreign Key	Links to users table.
+title	String	Short name of the situation.
+description	Text	Summary of situation.
+situation_type	Enum	Planned or Completed.
+start_time	Timestamp	Time it started.
+end_time	Timestamp	Time it ended.
+outcome	Enum	Success, Partial Success, or Failure.
+score	Integer	Self-assessed score (1-10).
+2️⃣ Phases Table
+Field	Type	Description
+id	UUID	Unique identifier.
+situation_id	Foreign Key	Links to a situation.
+phase_name	String	Example: "Opening Phase."
+approach_used	Text	Strategy applied.
+effectiveness_score	Integer	Performance (1-10).
+response_outcome	Text	What happened as a result.
+
+
+
+New features
+- I want to be able to create a new situation entry using the phases of the previous situation
+- I also want the ability to add phases in between existing phases
+
+- We can also organise by skill component - eg a phase 
+    - A phase is a skill component that can only be done in unit time
+    - There maybe multiple skill components in a single phase
+        - Eg. good body language
+            - Eye contact
+            - Posture
+            - Gestures
+            - Facial expression
+            - Voice tone
+        - Eg. good communication skills
+            - Leading the conversation
+            - Being receptive
+            - Active listening
+            - Goal directed
+            - Fun and light

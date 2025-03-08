@@ -151,20 +151,20 @@ export default function NotesSection({ goalId }: NotesSectionProps) {
         <Typography variant="subtitle2" color="text.secondary" className="mb-2">
           Pinned Notes ({pinnedNotes.length}/3)
         </Typography>
-        <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
-          {pinnedNotes.length === 0 ? (
-            <Typography color="text.secondary" variant="body2" className="italic">
-              No pinned notes. Pin important notes to see them here.
-            </Typography>
-          ) : (
-            pinnedNotes.map((note) => (
+        {pinnedNotes.length === 0 ? (
+          <Typography color="text.secondary" variant="body2" className="italic">
+            No pinned notes. Pin important notes to see them here.
+          </Typography>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {pinnedNotes.map((note) => (
               <div 
                 key={note.id}
-                className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 relative"
+                className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 relative h-[150px] flex flex-col"
               >
-                <div className="flex justify-between">
-                  <Typography variant="body2" className="whitespace-pre-wrap">
-                    {note.content}
+                <div className="flex justify-between mb-1">
+                  <Typography variant="caption" color="text.secondary">
+                    {formatDate(note.updated_at)}
                   </Typography>
                   <div className="flex gap-1">
                     <Tooltip title="Unpin">
@@ -193,13 +193,15 @@ export default function NotesSection({ goalId }: NotesSectionProps) {
                     </Tooltip>
                   </div>
                 </div>
-                <Typography variant="caption" color="text.secondary" className="mt-1 block">
-                  {formatDate(note.updated_at)}
-                </Typography>
+                <div className="overflow-y-auto flex-grow">
+                  <Typography variant="body2" className="whitespace-pre-wrap">
+                    {note.content}
+                  </Typography>
+                </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Note Selector */}
