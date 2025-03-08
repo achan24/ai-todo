@@ -128,8 +128,24 @@ export default function CalendarPage() {
         const data = await response.json();
         setTasks(data);
         
-        // Filter starred tasks - only include non-completed tasks
-        const starred = data.filter((task: Task) => task.is_starred && !task.completed);
+        // Filter starred tasks - include both top-level tasks and subtasks
+        // First, collect all tasks including subtasks into a flat array
+        const flattenTasks = (tasks: Task[]): Task[] => {
+          let result: Task[] = [];
+          tasks.forEach(task => {
+            result.push(task);
+            if (task.subtasks && task.subtasks.length > 0) {
+              result = result.concat(flattenTasks(task.subtasks));
+            }
+          });
+          return result;
+        };
+        
+        // Get all tasks (including subtasks) in a flat array
+        const allTasks = flattenTasks(data);
+        
+        // Filter for starred and non-completed tasks
+        const starred = allTasks.filter(task => task.is_starred && !task.completed);
         setStarredTasks(starred);
         
         // Convert tasks with scheduled_time to calendar events
