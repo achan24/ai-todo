@@ -1,9 +1,82 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, TrashIcon, TagIcon, SparklesIcon, ClockIcon, CalendarIcon, EyeIcon, BellAlertIcon } from '@heroicons/react/24/solid';
 import EditTaskDialog from './EditTaskDialog';
 import ContributionDialog from './ContributionDialog';
+import TaskDetail from './TaskDetail';
+
+// Component to show reminders on hover
+interface ReminderHoverPreviewProps {
+  taskId: number;
+}
+
+interface Reminder {
+  id: number;
+  title: string;
+  message?: string;
+  reminder_time: string;
+  reminder_type: string;
+  task_id: number;
+}
+
+function ReminderHoverPreview({ taskId }: ReminderHoverPreviewProps) {
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchReminders = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`http://localhost:8005/api/reminders/task/${taskId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reminders: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setReminders(data);
+      } catch (error) {
+        console.error('Error fetching reminders:', error);
+        setError('Failed to load reminders');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReminders();
+  }, [taskId]);
+
+  const formatReminderTime = (dateTimeStr: string) => {
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString();
+  };
+
+  if (loading) {
+    return <div className="text-xs text-gray-500">Loading reminders...</div>;
+  }
+
+  if (error) {
+    return <div className="text-xs text-red-500">{error}</div>;
+  }
+
+  if (reminders.length === 0) {
+    return <div className="text-xs text-gray-500">No reminders found</div>;
+  }
+
+  return (
+    <div className="space-y-2 max-h-40 overflow-y-auto">
+      {reminders.map((reminder) => (
+        <div key={reminder.id} className="text-xs border-b border-gray-100 pb-1">
+          <div className="font-medium">{reminder.title}</div>
+          <div className="text-gray-500">{formatReminderTime(reminder.reminder_time)}</div>
+          {reminder.message && <div className="text-gray-600 mt-1">{reminder.message}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface Task {
   id: number;
@@ -21,6 +94,7 @@ interface Task {
   contribution_value?: number;
   is_starred?: boolean;
   scheduled_time?: string;
+  has_reminders?: boolean;
 }
 
 interface TaskItemProps {
@@ -34,6 +108,7 @@ interface TaskItemProps {
   onEdit: (task: Task) => void;
   onDelete: (taskId: number, title: string) => void;
   onToggleStar?: (taskId: number) => void;
+  onViewDetails: (task: Task) => void;
 }
 
 const TaskItem = ({ 
@@ -46,10 +121,14 @@ const TaskItem = ({
   onToggleComplete,
   onEdit,
   onDelete,
-  onToggleStar
+  onToggleStar,
+  onViewDetails
 }: TaskItemProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+  
+  // Use the has_reminders flag directly from the task object
+  // This avoids an unnecessary API call for each task
 
   return (
     <>
@@ -99,9 +178,15 @@ const TaskItem = ({
             />
             <div className="min-w-0">
               <div className="flex items-center space-x-2">
-                <p className={`${level === 0 ? 'text-sm' : 'text-xs'} font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
-                  {task.title}
-                </p>
+                <div className="flex items-center">
+                  <p className={`${level === 0 ? 'text-sm' : 'text-xs'} font-medium text-gray-900 ${task.completed ? 'line-through text-gray-500' : ''}`}>
+                    {task.title}
+                  </p>
+                  <BellAlertIcon 
+                    className={`${level === 0 ? 'h-5 w-5' : 'h-4 w-4'} ml-1 text-amber-500`} 
+                    title="Reminder indicator"
+                  />
+                </div>
                 <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
                   task.priority === 'high' ? 'bg-red-100 text-red-800' :
                   task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -169,10 +254,17 @@ const TaskItem = ({
             >
               <TrashIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3.5 w-3.5'} text-gray-400`} />
             </button>
+            <button
+              onClick={() => onViewDetails(task)}
+              className="p-1 rounded-full hover:bg-gray-200"
+              title="View Details"
+            >
+              <EyeIcon className={`${level === 0 ? 'h-4 w-4' : 'h-3.5 w-3.5'} text-gray-400`} />
+            </button>
           </div>
         </div>
       </li>
-      {hasSubtasks && !isCollapsed && (
+      {hasSubtasks && !isCollapsed && task.subtasks && (
         task.subtasks.map(subtask => (
           <TaskItem 
             key={subtask.id} 
@@ -186,6 +278,7 @@ const TaskItem = ({
             onEdit={onEdit}
             onDelete={onDelete}
             onToggleStar={onToggleStar}
+            onViewDetails={onViewDetails}
           />
         ))
       )}
@@ -202,6 +295,8 @@ export default function TaskManager() {
   const [isContributionDialogOpen, setIsContributionDialogOpen] = useState(false);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [recommendedTask, setRecommendedTask] = useState<Task | null>(null);
+  const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Fetch tasks
   const fetchTasks = async () => {
@@ -213,10 +308,13 @@ export default function TaskManager() {
       }
       const data = await response.json();
       console.log('Raw task data:', JSON.stringify(data, null, 2));
+      
+      // Process tasks to ensure required properties exist
       setTasks(data.map((task: Task) => ({
         ...task,
         tags: task.tags || [],
-        subtasks: task.subtasks || []  // Ensure subtasks is never undefined
+        subtasks: task.subtasks || [],  // Ensure subtasks is never undefined
+        // Keep the has_reminders flag as returned from the server
       })));
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -330,8 +428,10 @@ export default function TaskManager() {
   };
 
   // Update task
-  const handleUpdateTask = async (taskId: number, updates: Partial<Task>) => {
+  const handleUpdateTask = async (taskId: number, updates: Partial<Task>): Promise<Task> => {
     try {
+      console.log(`Updating task ${taskId} with data:`, updates);
+      
       const response = await fetch(`http://localhost:8005/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
@@ -339,7 +439,9 @@ export default function TaskManager() {
         },
         body: JSON.stringify({
           ...updates,
-          metric_id: updates.metric_id === undefined ? null : updates.metric_id
+          metric_id: updates.metric_id === undefined ? null : updates.metric_id,
+          // Ensure has_reminders is explicitly included if it exists in updates
+          has_reminders: updates.has_reminders
         }),
       });
 
@@ -348,13 +450,20 @@ export default function TaskManager() {
       }
 
       const updatedTask = await response.json();
+      
+      // Ensure the updated task has all necessary properties
+      const completeUpdatedTask: Task = {
+        ...updatedTask,
+        tags: updatedTask.tags || [],
+        subtasks: updatedTask.subtasks || []
+      };
 
       // Update the task in the state tree
       setTasks(prevTasks => {
         const updateTaskInTree = (tasks: Task[]): Task[] => {
           return tasks.map(task => {
             if (task.id === taskId) {
-              return { ...task, ...updatedTask };
+              return completeUpdatedTask;
             }
             if (task.subtasks) {
               return { ...task, subtasks: updateTaskInTree(task.subtasks) };
@@ -366,8 +475,11 @@ export default function TaskManager() {
       });
       setIsEditModalOpen(false);
       setEditingTask(null);
+      
+      return completeUpdatedTask;
     } catch (error) {
       console.error('Error updating task:', error);
+      throw error; // Re-throw to allow proper error handling
     }
   };
 
@@ -571,7 +683,7 @@ export default function TaskManager() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="text-sm text-purple-700">
-                      Confidence: {Math.round(recommendedTask.ai_confidence * 100)}%
+                      Confidence: {Math.round((recommendedTask.ai_confidence || 0) * 100)}%
                     </div>
                     <button
                       onClick={() => handleToggleComplete(recommendedTask.id, recommendedTask.completed)}
@@ -662,6 +774,10 @@ export default function TaskManager() {
                   }}
                   onDelete={handleDeleteTask}
                   onToggleStar={handleToggleStar}
+                  onViewDetails={(task) => {
+                    setSelectedTask(task);
+                    setIsTaskDetailOpen(true);
+                  }}
                 />
               ))}
             </ul>
@@ -675,10 +791,12 @@ export default function TaskManager() {
               setIsEditModalOpen(false);
               setEditingTask(null);
             }}
-            onSave={(updatedTask) => {
+            onSave={async (updatedTask) => {
               if (editingTask) {
-                handleUpdateTask(editingTask.id, updatedTask);
+                const savedTask = await handleUpdateTask(editingTask.id, updatedTask);
+                return savedTask;
               }
+              return updatedTask; // Fallback, should not happen
             }}
           />
 
@@ -690,8 +808,18 @@ export default function TaskManager() {
               setCompletingTask(null);
             }}
             onSubmit={handleContributionSubmit}
-            metricId={completingTask?.metric_id}
+            metricId={completingTask?.metric_id || undefined}
             initialValue={completingTask?.contribution_value}
+          />
+          
+          {/* Task Detail Dialog */}
+          <TaskDetail
+            open={isTaskDetailOpen}
+            task={selectedTask}
+            onClose={() => {
+              setIsTaskDetailOpen(false);
+              setSelectedTask(null);
+            }}
           />
         </div>
       </div>

@@ -16,6 +16,7 @@ class TaskBase(BaseModel):
     contribution_value: Optional[float] = None
     is_starred: bool = False
     scheduled_time: Optional[datetime] = None
+    has_reminders: bool = False
 
 class TaskCreate(TaskBase):
     pass
@@ -34,6 +35,7 @@ class TaskUpdate(BaseModel):
     contribution_value: Optional[float] = None
     is_starred: Optional[bool] = None
     scheduled_time: Optional[datetime] = None
+    has_reminders: Optional[bool] = None
 
 class Task(TaskBase):
     id: int
@@ -49,6 +51,10 @@ class Task(TaskBase):
         from_attributes = True
 
 # Update forward refs
+Task.model_rebuild()
+
+# Import at the end to avoid circular imports
+from .reminder import Reminder
 Task.model_rebuild()
 
 class TaskWithAIRecommendation(Task):

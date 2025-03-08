@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PencilIcon, TrashIcon, TagIcon, ClockIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, TrashIcon, TagIcon, ClockIcon, BellAlertIcon } from '@heroicons/react/24/solid';
 import AddIcon from '@mui/icons-material/Add';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -64,6 +64,8 @@ interface Task {
   subtasks: Task[];
   completion_time: string | null;
   completion_order: number | null;
+  has_reminders?: boolean;
+  is_starred?: boolean;
 }
 
 interface Contribution {
@@ -228,11 +230,19 @@ const TaskItem = ({
             />
             <div>
               <div className="flex items-center space-x-2">
-                <Typography
-                  className={task.completed ? 'line-through text-gray-500' : ''}
-                >
-                  {task.title}
-                </Typography>
+                <div className="flex items-center">
+                  <Typography
+                    className={task.completed ? 'line-through text-gray-500' : ''}
+                  >
+                    {task.title}
+                  </Typography>
+                  {task.has_reminders && (
+                    <BellAlertIcon 
+                      className={`${level === 0 ? 'h-5 w-5' : 'h-4 w-4'} ml-1 text-amber-500`} 
+                      title="This task has reminders"
+                    />
+                  )}
+                </div>
                 {task.estimated_minutes && (
                   <div className="flex items-center text-gray-500 text-sm">
                     <ClockIcon className="h-4 w-4 mr-1" />

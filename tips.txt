@@ -331,3 +331,49 @@ If data appears to be "not saving" but the database tables and relationships are
   1. Check if they're duplicates of existing migrations in alembic/versions/
   2. If unique, move them to alembic/versions/
   3. If duplicates, delete them to avoid confusion
+
+25. Database Management
+--------------------------------
+1. Keep only ONE database file:
+   - The application uses SQLite with file: ./sql_app.db (defined in database.py)
+   - Multiple database files (.db) cause confusion and data inconsistency
+   - Remove any extra .db files after ensuring no important data is lost
+   - Add database files to .gitignore to prevent accidental commits
+
+2. When adding columns to SQLite:
+   ```python
+   import sqlite3
+   conn = sqlite3.connect('sql_app.db')
+   conn.execute('ALTER TABLE tasks ADD COLUMN has_reminders BOOLEAN DEFAULT 0')
+   conn.commit()
+   conn.close()
+   ```
+
+26. API Data Formatting
+--------------------------------
+1. ALWAYS TEST THE API DIRECTLY FIRST before making frontend changes:
+   - Use curl or Postman to test API endpoints with exact data format
+   - Confirm the exact format and required fields before modifying frontend code
+   - Example for testing reminders API:
+   ```
+   curl -X POST http://localhost:8005/api/reminders/ -H "Content-Type: application/json" -d '{"title":"Test Reminder", "message":"This is a test", "reminder_time":"2025-03-08T12:00:00", "reminder_type":"one_time", "task_id":149}'
+   ```
+
+2. When fixing issues:
+   - Fix ONLY what was requested and test immediately
+   - Don't make multiple unrelated changes at once
+   - Let the user test each change before moving on to other improvements
+
+3. Common API formatting errors:
+   - Using incorrect field names (e.g., using 'description' instead of 'message')
+   - Adding extra fields not expected by the backend (e.g., 'is_dismissed')
+   - Using incorrect task IDs (e.g., not using the exact ID from the database)
+   - Not matching the exact format shown in working curl examples
+
+4. Component identification:
+   - Always verify which component is actually being used in the UI
+   - Don't assume component filenames match their usage (e.g., TaskManager.tsx might not be the active task manager)
+   - Check the application's routing and page structure to find the correct component
+   - Test changes by verifying they appear in the UI, not just that the code compiles
+
+   LITERAL EXAMPLE: When adding a bell icon for tasks with reminders, we initially modified src/components/TaskManager.tsx, but no changes appeared in the UI. After investigation, we discovered that the actual component rendering tasks was the TaskItem component in src/app/goals/[id]/page.tsx. Despite its name, TaskManager.tsx was not the active component managing task display in the current UI.

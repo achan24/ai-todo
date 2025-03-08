@@ -86,6 +86,9 @@ async def update_task(db: Session, task_id: int, task_update: TaskUpdate, user_i
     # Ensure tags is never None
     if "tags" in update_data and update_data["tags"] is None:
         update_data["tags"] = []
+    
+    # Debug log to see what's being updated
+    print(f"Updating task {task_id} with data: {update_data}")
         
     for field, value in update_data.items():
         setattr(db_task, field, value)

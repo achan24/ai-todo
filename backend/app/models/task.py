@@ -33,6 +33,7 @@ class Task(Base):
     tags = Column(JSON, nullable=True, default=list)
     is_starred = Column(Boolean, default=False)
     scheduled_time = Column(DateTime, nullable=True)
+    has_reminders = Column(Boolean, default=False)
     
     # Relationships
     subtasks = relationship("Task", 
