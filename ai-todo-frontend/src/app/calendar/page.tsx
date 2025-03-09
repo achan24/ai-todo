@@ -19,6 +19,7 @@ import {
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { format, addDays, startOfWeek, addHours, parseISO, isToday } from 'date-fns';
+import './calendar.css';
 import config from '@/config/config';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -141,8 +142,12 @@ export default function CalendarPage() {
           return result;
         };
         
-        // Get all tasks (including subtasks) in a flat array
+        // Get all tasks (including subtasks) in a flat array for starred tasks display
         const allTasks = flattenTasks(data);
+        
+        // Keep the original task structure for proper subtask lookup
+        // This preserves the parent-child relationships
+        setTasks(data);
         
         // Filter for starred and non-completed tasks
         const starred = allTasks.filter(task => task.is_starred && !task.completed);
@@ -384,13 +389,30 @@ export default function CalendarPage() {
     ].join(':');
   };
 
+  // Helper function to find a task by ID in a nested structure
+  const findTaskById = (taskId: number, taskList: Task[]): Task | null => {
+    // First check in the current level
+    const foundTask = taskList.find(t => t.id === taskId);
+    if (foundTask) return foundTask;
+    
+    // If not found, recursively check in subtasks
+    for (const task of taskList) {
+      if (task.subtasks && task.subtasks.length > 0) {
+        const foundInSubtasks = findTaskById(taskId, task.subtasks);
+        if (foundInSubtasks) return foundInSubtasks;
+      }
+    }
+    
+    return null;
+  };
+  
   // Handle task drop from starred/all tasks list onto calendar
   const handleExternalDrop = async (taskId: number, date: Date, hour: number, minute: number = 0) => {
     try {
       console.log('Handling external drop for task ID:', taskId, 'at date:', date, 'hour:', hour, 'minute:', minute);
       
-      // Find the task in our state
-      const task = tasks.find(t => t.id === taskId);
+      // Find the task in our state using the recursive helper
+      const task = findTaskById(taskId, tasks);
       if (!task) {
         console.error('Task not found:', taskId);
         return;
@@ -513,8 +535,46 @@ export default function CalendarPage() {
     }
   };
   
+  // Current time indicator reference and state
+  const currentTimeRef = useRef<HTMLDivElement>(null);
+  const [currentTimePosition, setCurrentTimePosition] = useState<number>(0);
+  
+  // Update current time position
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      
+      // Force re-render to update the time indicator position
+      // This is more reliable than using percentage-based positioning
+      setCurrentTimePosition(Date.now()); // Just using this as a trigger for re-render
+      
+      // Scroll to current time if it's today
+      if (isToday(currentDate)) {
+        // Get the table container
+        const tableContainer = document.querySelector('.MuiTableContainer-root');
+        if (tableContainer) {
+          // Calculate scroll position: each hour is approximately 120px in height (30px * 4 slots)
+          // Subtract some offset to position the current time in the middle of the viewport
+          const scrollPosition = (hours * 120) + (minutes / 60 * 120) - 200;
+          tableContainer.scrollTop = Math.max(0, scrollPosition);
+        }
+      }
+    };
+    
+    // Update immediately and then every minute
+    updateCurrentTime();
+    const interval = setInterval(updateCurrentTime, 60000);
+    
+    return () => clearInterval(interval);
+  }, [currentDate]);
+  
   // Calendar navigation functions
-  const goToToday = () => setCurrentDate(new Date());
+  const goToToday = () => {
+    setCurrentDate(new Date());
+    // Scroll to current time will happen in the useEffect
+  };
   const goToPreviousDay = () => setCurrentDate(prev => addDays(prev, -1));
   const goToNextDay = () => setCurrentDate(prev => addDays(prev, 1));
   const goToPreviousWeek = () => setCurrentDate(prev => addDays(prev, -7));
@@ -797,6 +857,38 @@ export default function CalendarPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
+                      {/* Current time indicator for day view */}
+                      {isToday(currentDate) && (
+                        <div 
+                          ref={currentTimeRef}
+                          className="current-time-indicator"
+                          style={{
+                            position: 'absolute',
+                            left: '15%', // Align with the start of the Events column
+                            right: 0,
+                            // Calculate position based on time slots
+                            // Each hour has 4 slots (15min each), and each slot is 30px
+                            // Total day height is 24h * 4 slots * 30px = 2880px
+                            top: `${(new Date().getHours() * 120) + (new Date().getMinutes() / 60 * 120)}px`,
+                            height: '2px',
+                            backgroundColor: 'red',
+                            zIndex: 100,
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              left: '-5px',
+                              top: '-4px',
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '50%',
+                              backgroundColor: 'red'
+                            }}
+                          />
+                        </div>
+                      )}
                       {getTimeSlots().map(slot => {
                         const { hour, minute } = slot;
                         const events = getEventsForTimeSlot(currentDate, hour, minute);
@@ -854,6 +946,38 @@ export default function CalendarPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
+                      {/* Current time indicator for week view */}
+                      {getDaysInWeek(currentDate).some(day => isToday(day)) && (
+                        <div 
+                          ref={currentTimeRef}
+                          className="current-time-indicator"
+                          style={{
+                            position: 'absolute',
+                            left: '10%', // Align with the start of the day columns
+                            right: 0,
+                            // Calculate position based on time slots
+                            // Each hour has 4 slots (15min each), and each slot is 30px
+                            // Total day height is 24h * 4 slots * 30px = 2880px
+                            top: `${(new Date().getHours() * 120) + (new Date().getMinutes() / 60 * 120)}px`,
+                            height: '2px',
+                            backgroundColor: 'red',
+                            zIndex: 100,
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              left: '-5px',
+                              top: '-4px',
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '50%',
+                              backgroundColor: 'red'
+                            }}
+                          />
+                        </div>
+                      )}
                       {getTimeSlots().map(slot => {
                         const { hour, minute } = slot;
                         // Only show the hour at the first slot of each hour

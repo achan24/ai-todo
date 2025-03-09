@@ -1,4 +1,28 @@
 /* Calendar Styles */
+
+/* Current time indicator */
+.current-time-indicator {
+  position: absolute;
+  height: 2px;
+  background-color: red;
+  z-index: 100;
+  pointer-events: none;
+  /* Ensure the indicator is properly positioned relative to the table */
+  left: 0;
+  right: 0;
+  margin-top: -1px; /* Offset to center the line */
+}
+
+.current-time-indicator::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: red;
+}
 .calendar-cell {
   min-height: 60px;
   border: 1px solid #e0e0e0;
