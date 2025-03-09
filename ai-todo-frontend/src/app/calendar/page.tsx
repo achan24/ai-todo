@@ -242,8 +242,8 @@ export default function CalendarPage() {
   // Toggle task completion status
   const toggleTaskCompletion = async (taskId: number) => {
     try {
-      // Find the task to determine its current completion status
-      const task = tasks.find(t => t.id === taskId);
+      // Find the task to determine its current completion status using the recursive helper
+      const task = findTaskById(taskId, tasks);
       if (!task) {
         console.error('Task not found:', taskId);
         return;
@@ -252,12 +252,26 @@ export default function CalendarPage() {
       const newCompletionStatus = !task.completed;
       
       // Optimistically update UI first
-      // Update tasks state
-      setTasks(prevTasks => 
-        prevTasks.map(task => 
-          task.id === taskId ? { ...task, completed: newCompletionStatus } : task
-        )
-      );
+      // Update tasks state - need to handle nested structure
+      setTasks(prevTasks => {
+        // Create a deep copy of the tasks array to avoid mutating the original
+        const updateTasksRecursively = (tasksList: Task[]): Task[] => {
+          return tasksList.map(t => {
+            // If this is the task we're looking for, update it
+            if (t.id === taskId) {
+              return { ...t, completed: newCompletionStatus };
+            }
+            // If this task has subtasks, recursively update them
+            if (t.subtasks && t.subtasks.length > 0) {
+              return { ...t, subtasks: updateTasksRecursively(t.subtasks) };
+            }
+            // Otherwise return the task unchanged
+            return t;
+          });
+        };
+        
+        return updateTasksRecursively(prevTasks);
+      });
       
       // Update calendar events and stop timer if task is completed
       setCalendarEvents(prev => 
@@ -277,6 +291,15 @@ export default function CalendarPage() {
       // If task is completed, remove from starred tasks
       if (newCompletionStatus) {
         setStarredTasks(prev => prev.filter(task => task.id !== taskId));
+      } else {
+        // If the task is being uncompleted and it's starred, add it back to starred tasks
+        if (task.is_starred) {
+          // Check if it's already in the starred tasks
+          const isAlreadyStarred = starredTasks.some(t => t.id === taskId);
+          if (!isAlreadyStarred) {
+            setStarredTasks(prev => [...prev, task]);
+          }
+        }
       }
       
       // Make the API call using the PUT endpoint for updating tasks
@@ -547,8 +570,40 @@ export default function CalendarPage() {
       const minutes = now.getMinutes();
       
       // Force re-render to update the time indicator position
-      // This is more reliable than using percentage-based positioning
       setCurrentTimePosition(Date.now()); // Just using this as a trigger for re-render
+      
+      // Find the current time row and position it correctly
+      const positionTimeIndicator = () => {
+        // Get all time slots
+        const timeSlots = getTimeSlots();
+        
+        // Find the closest time slot
+        let closestSlotIndex = 0;
+        let minDiff = Infinity;
+        
+        timeSlots.forEach((slot, index) => {
+          const diff = Math.abs(slot.hour - hours) * 60 + Math.abs(slot.minute - minutes);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestSlotIndex = index;
+          }
+        });
+        
+        // Get the row for that time slot
+        const rows = document.querySelectorAll('tbody tr');
+        if (rows.length > closestSlotIndex) {
+          // Insert the current time row after this row
+          const currentTimeRow = document.querySelector('.current-time-row') as HTMLElement;
+          if (currentTimeRow) {
+            // Position it at the correct offset within the row based on minutes
+            const minuteOffset = (minutes / 60) * 30; // 30px is the height of a 15-min slot
+            currentTimeRow.style.top = `${minuteOffset}px`;
+          }
+        }
+      };
+      
+      // Run after a short delay to ensure the DOM is updated
+      setTimeout(positionTimeIndicator, 100);
       
       // Scroll to current time if it's today
       if (isToday(currentDate)) {
@@ -775,9 +830,21 @@ export default function CalendarPage() {
                     onDragStart={(e) => handleDragStart(e, task)}
                   >
                     <div className="flex justify-between items-center">
-                      <Typography variant="body1">
-                        {task.title}
-                      </Typography>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => toggleTaskCompletion(task.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <Typography variant="body1" sx={{ 
+                          textDecoration: task.completed ? 'line-through' : 'none',
+                          color: task.completed ? 'text.secondary' : 'text.primary'
+                        }}>
+                          {task.title}
+                        </Typography>
+                      </div>
                       <IconButton 
                         size="small" 
                         onClick={() => toggleStar(task.id)}
@@ -859,35 +926,36 @@ export default function CalendarPage() {
                     <TableBody>
                       {/* Current time indicator for day view */}
                       {isToday(currentDate) && (
-                        <div 
-                          ref={currentTimeRef}
-                          className="current-time-indicator"
-                          style={{
-                            position: 'absolute',
-                            left: '15%', // Align with the start of the Events column
-                            right: 0,
-                            // Calculate position based on time slots
-                            // Each hour has 4 slots (15min each), and each slot is 30px
-                            // Total day height is 24h * 4 slots * 30px = 2880px
-                            top: `${(new Date().getHours() * 120) + (new Date().getMinutes() / 60 * 120)}px`,
-                            height: '2px',
-                            backgroundColor: 'red',
-                            zIndex: 100,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          <div 
-                            style={{
-                              position: 'absolute',
-                              left: '-5px',
-                              top: '-4px',
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '50%',
-                              backgroundColor: 'red'
-                            }}
-                          />
-                        </div>
+                        <tr className="current-time-row" style={{ height: 0 }}>
+                          <td colSpan={2} style={{ padding: 0, position: 'relative', height: 0, border: 'none' }}>
+                            <div 
+                              ref={currentTimeRef}
+                              className="current-time-indicator"
+                              style={{
+                                position: 'absolute',
+                                left: 0,
+                                right: 0,
+                                top: 0,
+                                height: '2px',
+                                backgroundColor: 'red',
+                                zIndex: 100,
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              <div 
+                                style={{
+                                  position: 'absolute',
+                                  left: '15%', // Align with the start of the Events column
+                                  top: '-4px',
+                                  width: '10px',
+                                  height: '10px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'red'
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
                       )}
                       {getTimeSlots().map(slot => {
                         const { hour, minute } = slot;
@@ -948,35 +1016,36 @@ export default function CalendarPage() {
                     <TableBody>
                       {/* Current time indicator for week view */}
                       {getDaysInWeek(currentDate).some(day => isToday(day)) && (
-                        <div 
-                          ref={currentTimeRef}
-                          className="current-time-indicator"
-                          style={{
-                            position: 'absolute',
-                            left: '10%', // Align with the start of the day columns
-                            right: 0,
-                            // Calculate position based on time slots
-                            // Each hour has 4 slots (15min each), and each slot is 30px
-                            // Total day height is 24h * 4 slots * 30px = 2880px
-                            top: `${(new Date().getHours() * 120) + (new Date().getMinutes() / 60 * 120)}px`,
-                            height: '2px',
-                            backgroundColor: 'red',
-                            zIndex: 100,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          <div 
-                            style={{
-                              position: 'absolute',
-                              left: '-5px',
-                              top: '-4px',
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '50%',
-                              backgroundColor: 'red'
-                            }}
-                          />
-                        </div>
+                        <tr className="current-time-row" style={{ height: 0 }}>
+                          <td colSpan={8} style={{ padding: 0, position: 'relative', height: 0, border: 'none' }}>
+                            <div 
+                              ref={currentTimeRef}
+                              className="current-time-indicator"
+                              style={{
+                                position: 'absolute',
+                                left: 0,
+                                right: 0,
+                                top: 0,
+                                height: '2px',
+                                backgroundColor: 'red',
+                                zIndex: 100,
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              <div 
+                                style={{
+                                  position: 'absolute',
+                                  left: '10%', // Align with the start of the day columns
+                                  top: '-4px',
+                                  width: '10px',
+                                  height: '10px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'red'
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
                       )}
                       {getTimeSlots().map(slot => {
                         const { hour, minute } = slot;
