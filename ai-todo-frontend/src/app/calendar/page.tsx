@@ -14,10 +14,13 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { format, addDays, startOfWeek, addHours, parseISO, isToday } from 'date-fns';
 import './calendar.css';
 import config from '@/config/config';
@@ -65,6 +68,10 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  
+  // Menu state for event options
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   
   // Timer update interval
   useEffect(() => {
@@ -154,40 +161,55 @@ export default function CalendarPage() {
         setStarredTasks(starred);
         
         // Convert tasks with scheduled_time to calendar events
-        const events = data
-          .filter((task: Task) => task.scheduled_time)
-          .map((task: Task) => {
-            const startTime = new Date(task.scheduled_time || '');
-            // Default end time is 1 hour after start time
-            const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-            
-            // Extract timer data from metadata if available
-            let timerData = { elapsedTime: undefined, timerActive: false };
-            if (task.metadata) {
-              try {
-                const metadata = JSON.parse(task.metadata);
-                if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
-                  // Only use timer data if it has a non-zero elapsed time
-                  timerData = metadata.timerData;
-                }
-              } catch (e) {
-                console.error('Error parsing task metadata:', e);
-              }
+        // We need to check both top-level tasks and subtasks for scheduled_time
+        const getAllTasksWithScheduledTime = (tasks: Task[]): Task[] => {
+          let result: Task[] = [];
+          tasks.forEach(task => {
+            if (task.scheduled_time) {
+              result.push(task);
             }
-            
-            return {
-              id: task.id.toString(),
-              title: task.title,
-              start: startTime,
-              end: endTime,
-              priority: task.priority,
-              is_starred: task.is_starred,
-              completed: task.completed,
-              elapsedTime: timerData.elapsedTime,
-              timerActive: task.completed ? false : timerData.timerActive, // Don't activate timer for completed tasks
-              timerLastUpdated: timerData.timerActive ? Date.now() : undefined
-            };
+            if (task.subtasks && task.subtasks.length > 0) {
+              result = result.concat(getAllTasksWithScheduledTime(task.subtasks));
+            }
           });
+          return result;
+        };
+        
+        const tasksWithScheduledTime = getAllTasksWithScheduledTime(data);
+        console.log('Tasks with scheduled time:', tasksWithScheduledTime);
+        
+        const events = tasksWithScheduledTime.map((task: Task) => {
+          const startTime = new Date(task.scheduled_time || '');
+          // Default end time is 1 hour after start time
+          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+          
+          // Extract timer data from metadata if available
+          let timerData = { elapsedTime: undefined, timerActive: false };
+          if (task.metadata) {
+            try {
+              const metadata = JSON.parse(task.metadata);
+              if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
+                // Only use timer data if it has a non-zero elapsed time
+                timerData = metadata.timerData;
+              }
+            } catch (e) {
+              console.error('Error parsing task metadata:', e);
+            }
+          }
+          
+          return {
+            id: task.id.toString(),
+            title: task.title,
+            start: startTime,
+            end: endTime,
+            priority: task.priority,
+            is_starred: task.is_starred,
+            completed: task.completed,
+            elapsedTime: timerData.elapsedTime,
+            timerActive: task.completed ? false : timerData.timerActive, // Don't activate timer for completed tasks
+            timerLastUpdated: timerData.timerActive ? Date.now() : undefined
+          };
+        });
         
         setCalendarEvents(events);
       } catch (error) {
@@ -239,11 +261,29 @@ export default function CalendarPage() {
     }
   };
   
+  // Helper function to find a task or subtask by ID
+  const findTaskById = (taskId: number, taskList: Task[]): Task | null => {
+    for (const task of taskList) {
+      if (task.id === taskId) {
+        return task;
+      }
+      
+      if (task.subtasks && task.subtasks.length > 0) {
+        const subtask = findTaskById(taskId, task.subtasks);
+        if (subtask) {
+          return subtask;
+        }
+      }
+    }
+    
+    return null;
+  };
+  
   // Toggle task completion status
   const toggleTaskCompletion = async (taskId: number) => {
     try {
       // Find the task to determine its current completion status
-      const task = tasks.find(t => t.id === taskId);
+      const task = findTaskById(taskId, tasks);
       if (!task) {
         console.error('Task not found:', taskId);
         return;
@@ -252,12 +292,22 @@ export default function CalendarPage() {
       const newCompletionStatus = !task.completed;
       
       // Optimistically update UI first
-      // Update tasks state
-      setTasks(prevTasks => 
-        prevTasks.map(task => 
-          task.id === taskId ? { ...task, completed: newCompletionStatus } : task
-        )
-      );
+      // Update tasks state recursively
+      setTasks(prevTasks => {
+        const updateTaskCompletionStatus = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, completed: newCompletionStatus };
+            }
+            if (task.subtasks && task.subtasks.length > 0) {
+              return { ...task, subtasks: updateTaskCompletionStatus(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        
+        return updateTaskCompletionStatus(prevTasks);
+      });
       
       // Update calendar events and stop timer if task is completed
       setCalendarEvents(prev => 
@@ -389,22 +439,7 @@ export default function CalendarPage() {
     ].join(':');
   };
 
-  // Helper function to find a task by ID in a nested structure
-  const findTaskById = (taskId: number, taskList: Task[]): Task | null => {
-    // First check in the current level
-    const foundTask = taskList.find(t => t.id === taskId);
-    if (foundTask) return foundTask;
-    
-    // If not found, recursively check in subtasks
-    for (const task of taskList) {
-      if (task.subtasks && task.subtasks.length > 0) {
-        const foundInSubtasks = findTaskById(taskId, task.subtasks);
-        if (foundInSubtasks) return foundInSubtasks;
-      }
-    }
-    
-    return null;
-  };
+  // We're using the findTaskById function defined earlier
   
   // Handle task drop from starred/all tasks list onto calendar
   const handleExternalDrop = async (taskId: number, date: Date, hour: number, minute: number = 0) => {
@@ -465,20 +500,39 @@ export default function CalendarPage() {
       
       const updatedTask = await response.json();
       
-      // Update tasks state with server response
-      setTasks(prevTasks => 
-        prevTasks.map(task => 
-          task.id === taskId ? { ...task, scheduled_time: updatedTask.scheduled_time } : task
-        )
-      );
+      // Update tasks state with server response recursively
+      setTasks(prevTasks => {
+        const updateTaskScheduledTime = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, scheduled_time: updatedTask.scheduled_time };
+            }
+            if (task.subtasks && task.subtasks.length > 0) {
+              return { ...task, subtasks: updateTaskScheduledTime(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        
+        return updateTaskScheduledTime(prevTasks);
+      });
       
       // Update starred tasks if it's a starred task
       if (updatedTask.is_starred) {
-        setStarredTasks(prev => 
-          prev.map(task => 
-            task.id === taskId ? { ...task, scheduled_time: updatedTask.scheduled_time } : task
-          )
-        );
+        // First check if the task is already in the starred tasks list
+        setStarredTasks(prev => {
+          const taskExists = prev.some(task => task.id === taskId);
+          
+          if (taskExists) {
+            // Update the existing task
+            return prev.map(task => 
+              task.id === taskId ? { ...task, scheduled_time: updatedTask.scheduled_time } : task
+            );
+          } else {
+            // Add the task to starred tasks if it's not already there
+            return [...prev, updatedTask];
+          }
+        });
       }
       
       console.log('Task scheduled successfully:', updatedTask);
@@ -493,7 +547,9 @@ export default function CalendarPage() {
   // Handle drag start for task items
   const handleDragStart = (e: React.DragEvent, task: Task) => {
     console.log('Drag started for task:', task.id);
+    // Make sure we set the data transfer properly
     e.dataTransfer.setData('text/plain', task.id.toString());
+    e.dataTransfer.effectAllowed = 'move';
     setDraggedTask(task);
   };
   
@@ -520,6 +576,8 @@ export default function CalendarPage() {
       
       const taskId = parseInt(e.dataTransfer.getData('text/plain'), 10);
       if (taskId && !isNaN(taskId)) {
+        // Always use handleExternalDrop for both new tasks and rescheduling
+        // This will handle the API call and state updates
         handleExternalDrop(taskId, date, hour, minute);
       }
     }
@@ -532,6 +590,77 @@ export default function CalendarPage() {
       await handleExternalDrop(taskId, newDate, newHour, newMinute);
     } catch (error) {
       console.error('Error handling event drop:', error);
+    }
+  };
+  
+  // Handle opening the event menu
+  const handleEventMenuOpen = (event: React.MouseEvent<HTMLElement>, eventId: string) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+    setSelectedEventId(eventId);
+  };
+  
+  // Handle closing the event menu
+  const handleEventMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedEventId(null);
+  };
+  
+  // Handle unscheduling a task
+  const handleUnscheduleTask = async () => {
+    if (!selectedEventId) return;
+    
+    try {
+      const taskId = parseInt(selectedEventId, 10);
+      
+      // Make API call to unschedule the task
+      const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}/schedule`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scheduled_time: "" }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to unschedule task');
+      }
+      
+      // Remove the event from calendar events
+      setCalendarEvents(prev => prev.filter(event => event.id !== selectedEventId));
+      
+      // Update tasks state
+      setTasks(prevTasks => {
+        const updateTaskScheduledTime = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, scheduled_time: undefined };
+            }
+            if (task.subtasks && task.subtasks.length > 0) {
+              return { ...task, subtasks: updateTaskScheduledTime(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        
+        return updateTaskScheduledTime(prevTasks);
+      });
+      
+      // Update starred tasks if it's a starred task
+      setStarredTasks(prev => {
+        return prev.map(task => {
+          if (task.id === taskId) {
+            return { ...task, scheduled_time: undefined };
+          }
+          return task;
+        });
+      });
+      
+      console.log('Task unscheduled successfully');
+    } catch (error) {
+      console.error('Error unscheduling task:', error);
+    } finally {
+      handleEventMenuClose();
     }
   };
   
@@ -590,6 +719,32 @@ export default function CalendarPage() {
     }
     return slots;
   };
+  
+  // Get the current time slot
+  const getCurrentTimeSlot = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = Math.floor(now.getMinutes() / 15) * 15;
+    return { hour: currentHour, minute: currentMinute };
+  };
+  
+  // Store the current time slot
+  const [currentTimeSlot, setCurrentTimeSlot] = useState(getCurrentTimeSlot());
+  
+  // Update the current time slot every minute
+  useEffect(() => {
+    const updateCurrentTimeSlot = () => {
+      setCurrentTimeSlot(getCurrentTimeSlot());
+    };
+    
+    // Update immediately
+    updateCurrentTimeSlot();
+    
+    // Update every minute
+    const intervalId = setInterval(updateCurrentTimeSlot, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
   
   // Get days for the week view
   const getDaysInWeek = (date: Date) => {
@@ -661,12 +816,21 @@ export default function CalendarPage() {
         style={{
           backgroundColor: bgColor,
           textDecoration: event.completed ? 'line-through' : 'none',
-          opacity: event.completed ? 0.7 : 1
+          opacity: event.completed ? 0.7 : 1,
+          cursor: 'grab' // Add cursor style to indicate draggability
         }}
-        draggable
+        draggable={true} // Explicitly set draggable to true
         onDragStart={(e) => {
-          const task = tasks.find(t => t.id.toString() === event.id);
-          if (task) handleDragStart(e, task);
+          console.log('Dragging calendar event:', event.id);
+          // Find the task associated with this event
+          const taskId = parseInt(event.id);
+          const task = findTaskById(taskId, tasks);
+          if (task) {
+            // Use the existing handleDragStart function
+            handleDragStart(e, task);
+          } else {
+            console.error('Task not found for event:', event.id);
+          }
         }}
       >
         <div className="flex flex-col">
@@ -695,6 +859,13 @@ export default function CalendarPage() {
               >
                 {event.timerActive ? 'Stop' : 'Start'}
               </button>
+              <IconButton
+                size="small"
+                onClick={(e) => handleEventMenuOpen(e, event.id)}
+                sx={{ padding: '2px' }}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
             </div>
           </div>
           
@@ -716,6 +887,19 @@ export default function CalendarPage() {
     );
   };
   
+  // Menu component for event options
+  const EventMenu = () => {
+    return (
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleEventMenuClose}
+      >
+        <MenuItem onClick={handleUnscheduleTask}>Unschedule</MenuItem>
+      </Menu>
+    );
+  };
+  
   // Handle receiving external drops on the calendar
   const handleReceiveExternal = (info: any) => {
     if (info.draggedEl.getAttribute('data-task-id')) {
@@ -731,6 +915,9 @@ export default function CalendarPage() {
 
   return (
     <div className="container mx-auto p-4">
+      {/* Render the event menu */}
+      <EventMenu />
+      
       <Box sx={{ mb: 4 }}>
         <Button 
           component={Link} 
@@ -848,7 +1035,8 @@ export default function CalendarPage() {
               
               {/* Day View */}
               {viewMode === 'day' && (
-                <TableContainer component={Paper} sx={{ maxHeight: '550px', overflow: 'auto' }}>
+                <TableContainer component={Paper} sx={{ maxHeight: '550px', overflow: 'auto', position: 'relative' }}>
+                  {/* Time indicator removed */}
                   <Table stickyHeader size="small">
                     <TableHead>
                       <TableRow>
@@ -857,38 +1045,6 @@ export default function CalendarPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {/* Current time indicator for day view */}
-                      {isToday(currentDate) && (
-                        <div 
-                          ref={currentTimeRef}
-                          className="current-time-indicator"
-                          style={{
-                            position: 'absolute',
-                            left: '15%', // Align with the start of the Events column
-                            right: 0,
-                            // Calculate position based on time slots
-                            // Each hour has 4 slots (15min each), and each slot is 30px
-                            // Total day height is 24h * 4 slots * 30px = 2880px
-                            top: `${(new Date().getHours() * 120) + (new Date().getMinutes() / 60 * 120)}px`,
-                            height: '2px',
-                            backgroundColor: 'red',
-                            zIndex: 100,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          <div 
-                            style={{
-                              position: 'absolute',
-                              left: '-5px',
-                              top: '-4px',
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '50%',
-                              backgroundColor: 'red'
-                            }}
-                          />
-                        </div>
-                      )}
                       {getTimeSlots().map(slot => {
                         const { hour, minute } = slot;
                         const events = getEventsForTimeSlot(currentDate, hour, minute);
@@ -932,7 +1088,8 @@ export default function CalendarPage() {
               
               {/* Week View */}
               {viewMode === 'week' && (
-                <TableContainer component={Paper} sx={{ maxHeight: '550px', overflow: 'auto' }}>
+                <TableContainer component={Paper} sx={{ maxHeight: '550px', overflow: 'auto', position: 'relative' }}>
+                  {/* Time indicator removed - using cell highlighting instead */}
                   <Table stickyHeader size="small">
                     <TableHead>
                       <TableRow>
@@ -946,38 +1103,6 @@ export default function CalendarPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {/* Current time indicator for week view */}
-                      {getDaysInWeek(currentDate).some(day => isToday(day)) && (
-                        <div 
-                          ref={currentTimeRef}
-                          className="current-time-indicator"
-                          style={{
-                            position: 'absolute',
-                            left: '10%', // Align with the start of the day columns
-                            right: 0,
-                            // Calculate position based on time slots
-                            // Each hour has 4 slots (15min each), and each slot is 30px
-                            // Total day height is 24h * 4 slots * 30px = 2880px
-                            top: `${(new Date().getHours() * 120) + (new Date().getMinutes() / 60 * 120)}px`,
-                            height: '2px',
-                            backgroundColor: 'red',
-                            zIndex: 100,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          <div 
-                            style={{
-                              position: 'absolute',
-                              left: '-5px',
-                              top: '-4px',
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '50%',
-                              backgroundColor: 'red'
-                            }}
-                          />
-                        </div>
-                      )}
                       {getTimeSlots().map(slot => {
                         const { hour, minute } = slot;
                         // Only show the hour at the first slot of each hour

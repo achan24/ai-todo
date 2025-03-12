@@ -1,0 +1,20 @@
+# SambaNova API Key Setup Instructions
+
+The application requires a SambaNova API key to function properly. Please create a .env file in the backend directory with the following content:
+
+```
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/ai_todo
+
+# JWT
+SECRET_KEY=your-secret-key-here
+
+# SambaNova AI
+SAMBANOVA_API_KEY=your-sambanova-api-key-here
+SAMBANOVA_API_URL=https://api.sambanova.ai/v1
+```
+
+Replace 'your-sambanova-api-key-here' with your actual SambaNova API key.
+You can get a SambaNova API key by signing up at https://sambanova.ai/
+
+After creating the .env file, restart the backend server to apply the changes.

@@ -37,18 +37,37 @@ async def create_message(
     user_message = conversation_service.add_message(db, conversation_id, message)
 
     # Generate AI response using the conversation context
-    ai_response = await ai_service.breakdown_task(
-        task_title=conversation.title,
-        task_description=message.content,
-        messages=[{"role": msg.role, "content": msg.content} for msg in conversation.messages]
-    )
-
-    # Save AI's response
-    ai_message = conversation_service.add_message(
-        db,
-        conversation_id,
-        ConversationMessageCreate(content=ai_response["response"], role="assistant")
-    )
+    try:
+        ai_response = await ai_service.breakdown_task(
+            task_title=conversation.title,
+            task_description=message.content,
+            messages=[{"role": msg.role, "content": msg.content} for msg in conversation.messages]
+        )
+        
+        # Check if we got a successful response
+        if not ai_response.get("success", False):
+            error_message = ai_response.get("response", "Failed to get AI response")
+            # Save the error message as the AI's response
+            ai_message = conversation_service.add_message(
+                db,
+                conversation_id,
+                ConversationMessageCreate(content=error_message, role="assistant")
+            )
+        else:
+            # Save AI's response
+            ai_message = conversation_service.add_message(
+                db,
+                conversation_id,
+                ConversationMessageCreate(content=ai_response["response"], role="assistant")
+            )
+    except Exception as e:
+        # Save the error message as the AI's response
+        error_message = f"Error processing request: {str(e)}"
+        ai_message = conversation_service.add_message(
+            db,
+            conversation_id,
+            ConversationMessageCreate(content=error_message, role="assistant")
+        )
 
     return ai_message
 

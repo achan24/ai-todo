@@ -3,7 +3,7 @@ export interface Config {
 }
 
 const config: Config = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005',
 };
 
 export default config;

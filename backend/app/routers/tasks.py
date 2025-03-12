@@ -138,9 +138,18 @@ async def get_task_breakdown(
             messages=request.messages
         )
         
+        # Check if there was an API error
+        if not result.get("success", False):
+            error_message = result.get("response", "Unknown error")
+            logger.error(f"API error: {error_message}")
+            # Return the error message to the client instead of raising an exception
+            # This allows the frontend to display the error message to the user
+            return {"response": error_message, "subtasks": [], "success": False}
+        
+        # Check if subtasks were generated
         if not result.get("subtasks"):
             logger.error("No subtasks generated")
-            raise HTTPException(status_code=500, detail="Failed to generate subtasks")
+            return {"response": "No subtasks could be generated. Please try again with a more specific description.", "subtasks": [], "success": False}
             
         logger.info(f"Generated {len(result['subtasks'])} subtasks")
         return result
