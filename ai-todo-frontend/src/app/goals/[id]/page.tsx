@@ -692,6 +692,22 @@ export default function GoalPage() {
         throw new Error('Task not found');
       }
 
+      // Update task completion status in state first for immediate UI feedback
+      setTasks(prevTasks => {
+        const updateTaskCompletion = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, completed: !currentStatus };
+            }
+            if (task.subtasks) {
+              return { ...task, subtasks: updateTaskCompletion(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        return updateTaskCompletion(prevTasks);
+      });
+
       // Use single endpoint for all task completions
       const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}`, {
         method: 'PUT',
@@ -709,26 +725,38 @@ export default function GoalPage() {
         throw new Error('Failed to update task');
       }
 
-      // Refresh goal data to get updated metrics
-      await fetchGoalData();
-
-      // Update task completion status in state
+      // Get the updated task data
+      const updatedTask = await response.json();
+      
+      // If the goal has metrics that need updating, fetch only the metrics data
+      if (task.metric_id) {
+        const metricsResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/metrics`);
+        if (metricsResponse.ok) {
+          const metricsData = await metricsResponse.json();
+          // Update only the metrics part of the goal
+          setGoal(prevGoal => ({
+            ...prevGoal!,
+            metrics: metricsData
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+      // Revert the optimistic update if there was an error
       setTasks(prevTasks => {
-        const updateTaskCompletion = (tasks: Task[]): Task[] => {
+        const revertTaskCompletion = (tasks: Task[]): Task[] => {
           return tasks.map(task => {
             if (task.id === taskId) {
-              return { ...task, completed: !currentStatus };
+              return { ...task, completed: currentStatus };
             }
             if (task.subtasks) {
-              return { ...task, subtasks: updateTaskCompletion(task.subtasks) };
+              return { ...task, subtasks: revertTaskCompletion(task.subtasks) };
             }
             return task;
           });
         };
-        return updateTaskCompletion(prevTasks);
+        return revertTaskCompletion(prevTasks);
       });
-    } catch (error) {
-      console.error('Error updating task:', error);
     }
   };
 
