@@ -1413,6 +1413,127 @@ export default function GoalPage() {
             </DialogActions>
           </Dialog>
 
+          {/* Tasks List */}
+          <Paper className="bg-white shadow rounded-lg">
+            <Accordion elevation={0}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography>Filter & Sort</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box className="flex items-center gap-4">
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <InputLabel>Sort by Date</InputLabel>
+                    <Select
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                      label="Sort by Date"
+                    >
+                      <MenuItem value="desc">Newest First</MenuItem>
+                      <MenuItem value="asc">Oldest First</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <InputLabel>Priority</InputLabel>
+                    <Select
+                      value={priorityFilter}
+                      onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
+                      label="Priority"
+                    >
+                      <MenuItem value="all">All Priorities</MenuItem>
+                      <MenuItem value="high">High</MenuItem>
+                      <MenuItem value="medium">Medium</MenuItem>
+                      <MenuItem value="low">Low</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={showCompleted}
+                        onChange={(e) => setShowCompleted(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label="Show Completed"
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={showDates}
+                        onChange={(e) => setShowDates(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label="Show Dates"
+                  />
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+
+            <List>
+              {filteredTasks.map(task => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onToggleComplete={toggleTaskCompletion}
+                  onEdit={setEditingTask}
+                  onDelete={handleDeleteTask}
+                  showDates={showDates}
+                  onToggleStar={toggleTaskStar}
+                />
+              ))}
+            </List>
+          </Paper>
+
+          {/* Quick Add Task */}
+          <Paper className="p-6 bg-white shadow rounded-lg">
+            <Typography variant="h6" gutterBottom>
+              Add New Task
+            </Typography>
+            <Box component="form" onSubmit={handleAddTask} sx={{ mt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={7}>
+                  <TextField
+                    fullWidth
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    placeholder="What needs to be done?"
+                    variant="outlined"
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={2}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    type="submit"
+                    disabled={!newTaskTitle.trim()}
+                  >
+                    Add Task
+                  </Button>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    color="secondary"
+                    onClick={() => setShowPasteTasksDialog(true)}
+                    startIcon={<ContentPasteIcon />}
+                  >
+                    Paste Tasks
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          </Paper>
+
           {/* Metrics Section */}
           <Paper className="p-6 bg-white shadow rounded-lg">
             <div className="flex justify-between items-center mb-6">
@@ -1734,405 +1855,284 @@ export default function GoalPage() {
             <SituationsSection goalId={params.id} />
           </div>
 
-          {/* Quick Add Task */}
-          <Paper className="p-6 bg-white shadow rounded-lg">
-            <Typography variant="h6" gutterBottom>
-              Add New Task
-            </Typography>
-            <Box component="form" onSubmit={handleAddTask} sx={{ mt: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={7}>
-                  <TextField
-                    fullWidth
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder="What needs to be done?"
-                    variant="outlined"
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={2}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    type="submit"
-                    disabled={!newTaskTitle.trim()}
-                  >
-                    Add Task
-                  </Button>
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="secondary"
-                    onClick={() => setShowPasteTasksDialog(true)}
-                    startIcon={<ContentPasteIcon />}
-                  >
-                    Paste Tasks
-                  </Button>
-                </Grid>
-              </Grid>
-            </Box>
-          </Paper>
-
-          {/* Tasks List */}
-          <Paper className="bg-white shadow rounded-lg">
-            <Accordion elevation={0}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Filter & Sort</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box className="flex items-center gap-4">
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Sort by Date</InputLabel>
-                    <Select
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                      label="Sort by Date"
-                    >
-                      <MenuItem value="desc">Newest First</MenuItem>
-                      <MenuItem value="asc">Oldest First</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Priority</InputLabel>
-                    <Select
-                      value={priorityFilter}
-                      onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
-                      label="Priority"
-                    >
-                      <MenuItem value="all">All Priorities</MenuItem>
-                      <MenuItem value="high">High</MenuItem>
-                      <MenuItem value="medium">Medium</MenuItem>
-                      <MenuItem value="low">Low</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={showCompleted}
-                        onChange={(e) => setShowCompleted(e.target.checked)}
-                        size="small"
-                      />
-                    }
-                    label="Show Completed"
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={showDates}
-                        onChange={(e) => setShowDates(e.target.checked)}
-                        size="small"
-                      />
-                    }
-                    label="Show Dates"
-                  />
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-
-            <List>
-              {filteredTasks.map(task => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onToggleComplete={toggleTaskCompletion}
-                  onEdit={setEditingTask}
-                  onDelete={handleDeleteTask}
-                  showDates={showDates}
-                  onToggleStar={toggleTaskStar}
+          {/* Add Metric Modal */}
+          <Dialog
+            open={showMetricModal}
+            onClose={() => setShowMetricModal(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>Add New Metric</DialogTitle>
+            <DialogContent>
+              <div className="space-y-4 mt-4">
+                <TextField
+                  label="Name"
+                  fullWidth
+                  value={newMetric.name}
+                  onChange={(e) => setNewMetric({ ...newMetric, name: e.target.value })}
                 />
-              ))}
-            </List>
-          </Paper>
-        </div>
-      </div>
-
-      {/* Add Metric Modal */}
-      <Dialog
-        open={showMetricModal}
-        onClose={() => setShowMetricModal(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Add New Metric</DialogTitle>
-        <DialogContent>
-          <div className="space-y-4 mt-4">
-            <TextField
-              label="Name"
-              fullWidth
-              value={newMetric.name}
-              onChange={(e) => setNewMetric({ ...newMetric, name: e.target.value })}
-            />
-            <TextField
-              label="Description"
-              fullWidth
-              multiline
-              rows={2}
-              value={newMetric.description}
-              onChange={(e) => setNewMetric({ ...newMetric, description: e.target.value })}
-            />
-            <TextField
-              select
-              label="Type"
-              fullWidth
-              value={newMetric.type}
-              onChange={(e) => setNewMetric({ ...newMetric, type: e.target.value as 'target' | 'process' })}
-            >
-              <MenuItem value="target">Target Metric</MenuItem>
-              <MenuItem value="process">Process Metric</MenuItem>
-            </TextField>
-            <TextField
-              label="Unit"
-              fullWidth
-              value={newMetric.unit}
-              onChange={(e) => setNewMetric({ ...newMetric, unit: e.target.value })}
-              placeholder="e.g., hours, pages, commits"
-              inputProps={{ type: 'text' }}
-            />
-            {newMetric.type === 'target' && (
-              <TextField
-                label="Target Value"
-                type="number"
-                fullWidth
-                value={newMetric.target_value || 0}
-                onChange={(e) => setNewMetric({ ...newMetric, target_value: e.target.value ? parseFloat(e.target.value) : 0 })}
-                inputProps={{ min: 0, step: 'any' }}
-              />
-            )}
-            <TextField
-              label="Current Value"
-              type="number"
-              fullWidth
-              value={newMetric.current_value || 0}
-              onChange={(e) => setNewMetric({ ...newMetric, current_value: e.target.value ? parseFloat(e.target.value) : 0 })}
-              inputProps={{ min: 0, step: 'any' }}
-            />
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowMetricModal(false)}>Cancel</Button>
-          <Button 
-            onClick={handleAddMetric} 
-            variant="contained" 
-            color="primary"
-            disabled={!newMetric.name || !newMetric.unit}
-          >
-            Add Metric
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Experience Modal */}
-      <Dialog
-        open={showExperienceModal}
-        onClose={() => setShowExperienceModal(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Add {newExperience.type === 'positive' ? 'Positive' : 'Negative'} Experience
-        </DialogTitle>
-        <DialogContent>
-          <div className="space-y-4 mt-4">
-            <TextField
-              label="Experience"
-              fullWidth
-              multiline
-              rows={4}
-              value={newExperience.content}
-              onChange={(e) => setNewExperience({ ...newExperience, content: e.target.value })}
-              placeholder="Describe your experience..."
-            />
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowExperienceModal(false)}>Cancel</Button>
-          <Button
-            onClick={handleAddExperience}
-            variant="contained"
-            color={newExperience.type === 'positive' ? 'success' : 'error'}
-          >
-            Add Experience
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Strategy Modal */}
-      <Dialog 
-        open={showStrategyModal} 
-        onClose={() => {
-          setShowStrategyModal(false);
-          setEditingStrategy(null);
-          setNewStrategy({ title: '', steps: [''] });
-        }}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>{editingStrategy ? 'Edit Strategy' : 'Add Strategy'}</DialogTitle>
-        <form onSubmit={editingStrategy ? handleEditStrategy : handleAddStrategy}>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Strategy Title"
-              type="text"
-              fullWidth
-              value={editingStrategy ? editingStrategy.title : newStrategy.title}
-              onChange={(e) => {
-                if (editingStrategy) {
-                  setEditingStrategy({
-                    ...editingStrategy,
-                    title: e.target.value
-                  });
-                } else {
-                  setNewStrategy({
-                    ...newStrategy,
-                    title: e.target.value
-                  });
-                }
-              }}
-              required
-            />
-            <div className="mt-4">
-              <Typography variant="subtitle1" className="mb-2">Steps</Typography>
-              {(editingStrategy ? editingStrategy.steps : newStrategy.steps).map((step, index) => (
-                <div key={index} className="flex gap-2 mb-2">
+                <TextField
+                  label="Description"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={newMetric.description}
+                  onChange={(e) => setNewMetric({ ...newMetric, description: e.target.value })}
+                />
+                <TextField
+                  select
+                  label="Type"
+                  fullWidth
+                  value={newMetric.type}
+                  onChange={(e) => setNewMetric({ ...newMetric, type: e.target.value as 'target' | 'process' })}
+                >
+                  <MenuItem value="target">Target Metric</MenuItem>
+                  <MenuItem value="process">Process Metric</MenuItem>
+                </TextField>
+                <TextField
+                  label="Unit"
+                  fullWidth
+                  value={newMetric.unit}
+                  onChange={(e) => setNewMetric({ ...newMetric, unit: e.target.value })}
+                  placeholder="e.g., hours, pages, commits"
+                  inputProps={{ type: 'text' }}
+                />
+                {newMetric.type === 'target' && (
                   <TextField
+                    label="Target Value"
+                    type="number"
                     fullWidth
-                    label={`Step ${index + 1}`}
-                    value={step}
-                    onChange={(e) => {
-                      const newSteps = [...(editingStrategy ? editingStrategy.steps : newStrategy.steps)];
-                      newSteps[index] = e.target.value;
-                      if (editingStrategy) {
-                        setEditingStrategy({
-                          ...editingStrategy,
-                          steps: newSteps
-                        });
-                      } else {
-                        setNewStrategy({
-                          ...newStrategy,
-                          steps: newSteps
-                        });
-                      }
-                    }}
-                    required
+                    value={newMetric.target_value || 0}
+                    onChange={(e) => setNewMetric({ ...newMetric, target_value: e.target.value ? parseFloat(e.target.value) : 0 })}
+                    inputProps={{ min: 0, step: 'any' }}
                   />
-                  <IconButton
-                    onClick={() => {
-                      const newSteps = [...(editingStrategy ? editingStrategy.steps : newStrategy.steps)];
-                      newSteps.splice(index, 1);
-                      if (editingStrategy) {
-                        setEditingStrategy({
-                          ...editingStrategy,
-                          steps: newSteps
-                        });
-                      } else {
-                        setNewStrategy({
-                          ...newStrategy,
-                          steps: newSteps
-                        });
-                      }
-                    }}
-                    disabled={(editingStrategy ? editingStrategy.steps : newStrategy.steps).length <= 1}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </div>
-              ))}
-              <Button
-                variant="text"
-                onClick={() => {
-                  if (editingStrategy) {
-                    setEditingStrategy({
-                      ...editingStrategy,
-                      steps: [...editingStrategy.steps, '']
-                    });
-                  } else {
-                    setNewStrategy({
-                      ...newStrategy,
-                      steps: [...newStrategy.steps, '']
-                    });
-                  }
-                }}
+                )}
+                <TextField
+                  label="Current Value"
+                  type="number"
+                  fullWidth
+                  value={newMetric.current_value || 0}
+                  onChange={(e) => setNewMetric({ ...newMetric, current_value: e.target.value ? parseFloat(e.target.value) : 0 })}
+                  inputProps={{ min: 0, step: 'any' }}
+                />
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowMetricModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleAddMetric} 
+                variant="contained" 
+                color="primary"
+                disabled={!newMetric.name || !newMetric.unit}
               >
-                Add Step
+                Add Metric
               </Button>
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
+            </DialogActions>
+          </Dialog>
+
+          {/* Experience Modal */}
+          <Dialog
+            open={showExperienceModal}
+            onClose={() => setShowExperienceModal(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>
+              Add {newExperience.type === 'positive' ? 'Positive' : 'Negative'} Experience
+            </DialogTitle>
+            <DialogContent>
+              <div className="space-y-4 mt-4">
+                <TextField
+                  label="Experience"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  value={newExperience.content}
+                  onChange={(e) => setNewExperience({ ...newExperience, content: e.target.value })}
+                  placeholder="Describe your experience..."
+                />
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowExperienceModal(false)}>Cancel</Button>
+              <Button
+                onClick={handleAddExperience}
+                variant="contained"
+                color={newExperience.type === 'positive' ? 'success' : 'error'}
+              >
+                Add Experience
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Strategy Modal */}
+          <Dialog 
+            open={showStrategyModal} 
+            onClose={() => {
               setShowStrategyModal(false);
               setEditingStrategy(null);
               setNewStrategy({ title: '', steps: [''] });
-            }}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingStrategy ? 'Update' : 'Create'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-
-      {/* Paste Tasks Dialog */}
-      <Dialog
-        open={showPasteTasksDialog}
-        onClose={() => setShowPasteTasksDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Paste Multiple Tasks</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Enter one task per line. Each line will be created as a separate task.
-          </Typography>
-          <TextField
-            autoFocus
-            multiline
-            rows={10}
-            value={pastedTasksText}
-            onChange={(e) => setPastedTasksText(e.target.value)}
+            }}
+            maxWidth="md"
             fullWidth
-            variant="outlined"
-            placeholder="Task 1&#10;Task 2&#10;Task 3&#10;..."
-            margin="normal"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowPasteTasksDialog(false)}>Cancel</Button>
-          <Button 
-            onClick={handlePasteTasks} 
-            variant="contained"
-            disabled={!pastedTasksText.trim()}
           >
-            Add Tasks
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>{editingStrategy ? 'Edit Strategy' : 'Add Strategy'}</DialogTitle>
+            <form onSubmit={editingStrategy ? handleEditStrategy : handleAddStrategy}>
+              <DialogContent>
+                <TextField
+                  autoFocus
+                  margin="dense"
+                  label="Strategy Title"
+                  type="text"
+                  fullWidth
+                  value={editingStrategy ? editingStrategy.title : newStrategy.title}
+                  onChange={(e) => {
+                    if (editingStrategy) {
+                      setEditingStrategy({
+                        ...editingStrategy,
+                        title: e.target.value
+                      });
+                    } else {
+                      setNewStrategy({
+                        ...newStrategy,
+                        title: e.target.value
+                      });
+                    }
+                  }}
+                  required
+                />
+                <div className="mt-4">
+                  <Typography variant="subtitle1" className="mb-2">Steps</Typography>
+                  {(editingStrategy ? editingStrategy.steps : newStrategy.steps).map((step, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <TextField
+                        fullWidth
+                        label={`Step ${index + 1}`}
+                        value={step}
+                        onChange={(e) => {
+                          const newSteps = [...(editingStrategy ? editingStrategy.steps : newStrategy.steps)];
+                          newSteps[index] = e.target.value;
+                          if (editingStrategy) {
+                            setEditingStrategy({
+                              ...editingStrategy,
+                              steps: newSteps
+                            });
+                          } else {
+                            setNewStrategy({
+                              ...newStrategy,
+                              steps: newSteps
+                            });
+                          }
+                        }}
+                        required
+                      />
+                      <IconButton
+                        onClick={() => {
+                          const newSteps = [...(editingStrategy ? editingStrategy.steps : newStrategy.steps)];
+                          newSteps.splice(index, 1);
+                          if (editingStrategy) {
+                            setEditingStrategy({
+                              ...editingStrategy,
+                              steps: newSteps
+                            });
+                          } else {
+                            setNewStrategy({
+                              ...newStrategy,
+                              steps: newSteps
+                            });
+                          }
+                        }}
+                        disabled={(editingStrategy ? editingStrategy.steps : newStrategy.steps).length <= 1}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </div>
+                  ))}
+                  <Button
+                    variant="text"
+                    onClick={() => {
+                      if (editingStrategy) {
+                        setEditingStrategy({
+                          ...editingStrategy,
+                          steps: [...editingStrategy.steps, '']
+                        });
+                      } else {
+                        setNewStrategy({
+                          ...newStrategy,
+                          steps: [...newStrategy.steps, '']
+                        });
+                      }
+                    }}
+                  >
+                    Add Step
+                  </Button>
+                </div>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => {
+                  setShowStrategyModal(false);
+                  setEditingStrategy(null);
+                  setNewStrategy({ title: '', steps: [''] });
+                }}>Cancel</Button>
+                <Button type="submit" variant="contained">
+                  {editingStrategy ? 'Update' : 'Create'}
+                </Button>
+              </DialogActions>
+            </form>
+          </Dialog>
 
-      <EditTaskDialog
-        open={!!editingTask}
-        task={editingTask}
-        onClose={() => setEditingTask(null)}
-        onSave={handleUpdateTask}
-        metrics={goal?.metrics || []}
-      />
+          {/* Paste Tasks Dialog */}
+          <Dialog
+            open={showPasteTasksDialog}
+            onClose={() => setShowPasteTasksDialog(false)}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogTitle>Paste Multiple Tasks</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Enter one task per line. Each line will be created as a separate task.
+              </Typography>
+              <TextField
+                autoFocus
+                multiline
+                rows={10}
+                value={pastedTasksText}
+                onChange={(e) => setPastedTasksText(e.target.value)}
+                fullWidth
+                variant="outlined"
+                placeholder="Task 1&#10;Task 2&#10;Task 3&#10;..."
+                margin="normal"
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowPasteTasksDialog(false)}>Cancel</Button>
+              <Button 
+                onClick={handlePasteTasks} 
+                variant="contained"
+                disabled={!pastedTasksText.trim()}
+              >
+                Add Tasks
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-      <style jsx>{`
-        .task-item.drag-over {
-          border: 2px dashed #4f46e5;
-          background-color: #f5f3ff;
-        }
-      `}</style>
+          <EditTaskDialog
+            open={!!editingTask}
+            task={editingTask}
+            onClose={() => setEditingTask(null)}
+            onSave={handleUpdateTask}
+            metrics={goal?.metrics || []}
+          />
+
+          <style jsx>{`
+            .task-item.drag-over {
+              border: 2px dashed #4f46e5;
+              background-color: #f5f3ff;
+            }
+          `}</style>
+        </div>
+      </div>
     </div>
   );
 }
