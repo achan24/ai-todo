@@ -379,3 +379,13 @@ If data appears to be "not saving" but the database tables and relationships are
    LITERAL EXAMPLE: When adding a bell icon for tasks with reminders, we initially modified src/components/TaskManager.tsx, but no changes appeared in the UI. After investigation, we discovered that the actual component rendering tasks was the TaskItem component in src/app/goals/[id]/page.tsx. Despite its name, TaskManager.tsx was not the active component managing task display in the current UI.
 
    IMPORTANT: The correct location for modifying the task UI elements (including the bell icon) is in /Users/albert/Documents/Git/ai-todo/ai-todo-frontend/src/app/goals/[id]/page.tsx, specifically in the TaskItem component. DO NOT modify src/components/TaskManager.tsx for task UI changes as it is NOT the active component being used in the interface.
+
+5. Model Changes and Data Flow
+----------------------------
+   - When modifying database models, always check ALL places where the model is used and received
+   - Update data preparation functions that handle the model (e.g., prepare_goal_for_response)
+   - Check serialization/deserialization logic for the model
+   - Verify frontend components that consume the model data
+   - Test the full data flow from database to UI to ensure consistency
+   - Pay special attention to nullable fields, default values, and type conversions
+   - Remember that SQLite may handle NULL values differently than expected

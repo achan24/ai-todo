@@ -52,9 +52,13 @@ class GoalTarget(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
+    goaltarget_parent_id = Column(String, ForeignKey("goal_targets.id", ondelete="CASCADE"), nullable=True)
+    position = Column(Integer, default=0)  # For ordering siblings
 
     # Relationships
     goal = relationship("Goal", back_populates="targets")
+    parent = relationship("GoalTarget", remote_side=[id], back_populates="children", foreign_keys=[goaltarget_parent_id])
+    children = relationship("GoalTarget", back_populates="parent", cascade="all, delete-orphan", foreign_keys=[goaltarget_parent_id])
 
 class Goal(Base):
     __tablename__ = "goals"

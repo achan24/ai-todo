@@ -1428,6 +1428,11 @@ export default function GoalPage() {
             </DialogActions>
           </Dialog>
 
+          {/* Goal Targets Section */}
+          <div className="mb-8 mt-8">
+            <GoalTargetsSection goalId={String(params.id)} />
+          </div>
+
           {/* Tasks List */}
           <Paper className="bg-white shadow rounded-lg">
             <Accordion elevation={0}>
@@ -1868,11 +1873,6 @@ export default function GoalPage() {
           {/* Situations Section */}
           <div className="mb-8">
             <SituationsSection goalId={params.id} />
-          </div>
-
-          {/* Goal Targets Section */}
-          <div className="mb-8">
-            <GoalTargetsSection goalId={String(params.id)} />
           </div>
 
           {/* Add Metric Modal */}

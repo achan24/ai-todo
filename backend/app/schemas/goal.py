@@ -76,6 +76,8 @@ class GoalTargetBase(BaseModel):
     deadline: Optional[datetime] = None
     status: GoalTargetStatus = GoalTargetStatus.concept
     notes: str = '[]'  # SQLite JSON field comes as string
+    goaltarget_parent_id: Optional[str] = None
+    position: int = 0  # For ordering siblings
 
     class Config:
         json_encoders = {
@@ -91,12 +93,15 @@ class GoalTargetUpdate(BaseModel):
     deadline: Optional[datetime] = None
     status: Optional[GoalTargetStatus] = None
     notes: Optional[str] = None
+    goaltarget_parent_id: Optional[str] = None
+    position: Optional[int] = None
 
 class GoalTarget(GoalTargetBase):
     id: str
     goal_id: int
     created_at: datetime
     updated_at: datetime
+    children: List['GoalTarget'] = []
 
     class Config:
         from_attributes = True

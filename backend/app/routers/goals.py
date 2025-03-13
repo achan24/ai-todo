@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Any, Dict
 import json
 import uuid
+from sqlalchemy import func
 
 from ..database import get_db
 from ..models.goal import Goal, Metric, GoalTarget
@@ -70,6 +71,15 @@ def prepare_goal_for_response(goal):
                 target.notes = json.dumps(target.notes)
             elif target.notes is None:
                 target.notes = '[]'
+            
+            # Ensure goaltarget_parent_id is properly handled
+            # SQLite returns None for NULL values, ensure it's consistent
+            if hasattr(target, 'goaltarget_parent_id') and target.goaltarget_parent_id == '':
+                target.goaltarget_parent_id = None
+            
+            # Ensure position is properly handled
+            if hasattr(target, 'position') and target.position is None:
+                target.position = 0  # Default position if not set
     
     # Process subgoals recursively
     for subgoal in goal.subgoals:
@@ -89,6 +99,15 @@ def prepare_goal_for_response(goal):
                     target.notes = json.dumps(target.notes)
                 elif target.notes is None:
                     target.notes = '[]'
+                
+                # Ensure goaltarget_parent_id is properly handled
+                # SQLite returns None for NULL values, ensure it's consistent
+                if hasattr(target, 'goaltarget_parent_id') and target.goaltarget_parent_id == '':
+                    target.goaltarget_parent_id = None
+                
+                # Ensure position is properly handled
+                if hasattr(target, 'position') and target.position is None:
+                    target.position = 0  # Default position if not set
         
         # Continue recursion for deeper subgoals
         prepare_goal_for_response(subgoal)
@@ -344,14 +363,27 @@ async def get_goal_targets(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     
+    # Get all targets for this goal
     targets = db.query(GoalTarget).filter(GoalTarget.goal_id == goal_id).all()
     
-    # Ensure notes field is properly formatted
+    # Process each target to ensure proper field handling
     for target in targets:
+        # Ensure notes is properly formatted
         if isinstance(target.notes, list):
             target.notes = json.dumps(target.notes)
         elif target.notes is None:
             target.notes = '[]'
+        
+        # Ensure goaltarget_parent_id is properly handled
+        if hasattr(target, 'goaltarget_parent_id') and target.goaltarget_parent_id == '':
+            target.goaltarget_parent_id = None
+        
+        # Ensure position is properly handled
+        if hasattr(target, 'position') and target.position is None:
+            target.position = 0  # Default position if not set
+    
+    # Sort targets by position
+    targets.sort(key=lambda x: x.position)
     
     return targets
 
@@ -361,13 +393,42 @@ async def create_goal_target(
     target: GoalTargetCreate,
     db: Session = Depends(get_db)
 ):
-    """Create a new target for a goal"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    """Create a new target for a specific goal."""
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     
-    # Generate a unique ID for the target
+    # Generate a UUID for the target
     target_id = str(uuid.uuid4())
+    
+    # Determine the position of the new target
+    position = 0
+    if target.goaltarget_parent_id:
+        # Check if parent exists
+        parent = db.query(GoalTarget).filter(GoalTarget.id == target.goaltarget_parent_id).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent target not found")
+        
+        # Get the highest position among siblings
+        max_position = db.query(func.max(GoalTarget.position)).filter(
+            GoalTarget.goal_id == goal_id,
+            GoalTarget.goaltarget_parent_id == target.goaltarget_parent_id
+        ).scalar() or -1
+        position = max_position + 1
+    else:
+        # Get the highest position among root targets
+        max_position = db.query(func.max(GoalTarget.position)).filter(
+            GoalTarget.goal_id == goal_id,
+            GoalTarget.goaltarget_parent_id.is_(None)
+        ).scalar() or -1
+        position = max_position + 1
+    
+    # Ensure notes is properly formatted
+    notes = target.notes
+    if notes is None:
+        notes = '[]'
+    elif isinstance(notes, list):
+        notes = json.dumps(notes)
     
     # Create the target
     db_target = GoalTarget(
@@ -376,21 +437,20 @@ async def create_goal_target(
         description=target.description,
         deadline=target.deadline,
         status=target.status,
-        notes=target.notes,
-        goal_id=goal_id
+        notes=notes,
+        goal_id=goal_id,
+        goaltarget_parent_id=target.goaltarget_parent_id if target.goaltarget_parent_id else None,
+        position=position
     )
     
-    db.add(db_target)
-    db.commit()
-    db.refresh(db_target)
-    
-    # Ensure notes is properly formatted for response
-    if isinstance(db_target.notes, list):
-        db_target.notes = json.dumps(db_target.notes)
-    elif db_target.notes is None:
-        db_target.notes = '[]'
-    
-    return db_target
+    try:
+        db.add(db_target)
+        db.commit()
+        db.refresh(db_target)
+        return db_target
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create target: {str(e)}")
 
 @router.get("/{goal_id}/targets/{target_id}", response_model=GoalTargetSchema)
 async def get_goal_target(
@@ -411,54 +471,66 @@ async def get_goal_target(
     if not target:
         raise HTTPException(status_code=404, detail="Target not found")
     
-    # Ensure notes is properly formatted for response
-    if isinstance(target.notes, list):
-        target.notes = json.dumps(target.notes)
-    elif target.notes is None:
-        target.notes = '[]'
-    
     return target
 
 @router.put("/{goal_id}/targets/{target_id}", response_model=GoalTargetSchema)
 async def update_goal_target(
     goal_id: int,
     target_id: str,
-    target_update: GoalTargetUpdate,
+    target: GoalTargetUpdate,
     db: Session = Depends(get_db)
 ):
-    """Update a target"""
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    """Update a specific target for a goal."""
+    # Check if goal exists
+    goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     
+    # Check if target exists
     db_target = db.query(GoalTarget).filter(
         GoalTarget.id == target_id,
         GoalTarget.goal_id == goal_id
     ).first()
-    
     if not db_target:
         raise HTTPException(status_code=404, detail="Target not found")
     
+    # Handle parent-child relationship update
+    if target.goaltarget_parent_id is not None:
+        # Check for circular reference
+        if target.goaltarget_parent_id == target_id:
+            raise HTTPException(status_code=400, detail="Target cannot be its own parent")
+        
+        # Check if new parent exists
+        if target.goaltarget_parent_id:
+            parent = db.query(GoalTarget).filter(GoalTarget.id == target.goaltarget_parent_id).first()
+            if not parent:
+                raise HTTPException(status_code=404, detail="Parent target not found")
+            
+            # Check for deep circular reference
+            parent_id = parent.goaltarget_parent_id
+            while parent_id:
+                if parent_id == target_id:
+                    raise HTTPException(status_code=400, detail="Circular reference detected")
+                parent = db.query(GoalTarget).filter(GoalTarget.id == parent_id).first()
+                if not parent:
+                    break
+                parent_id = parent.goaltarget_parent_id
+        
+        # If parent changed, update position
+        if db_target.goaltarget_parent_id != target.goaltarget_parent_id:
+            # Get the highest position among new siblings
+            max_position = db.query(func.max(GoalTarget.position)).filter(
+                GoalTarget.goal_id == goal_id,
+                GoalTarget.goaltarget_parent_id == target.goaltarget_parent_id
+            ).scalar() or -1
+            target.position = max_position + 1
+    
     # Update target fields
-    if target_update.title is not None:
-        db_target.title = target_update.title
-    if target_update.description is not None:
-        db_target.description = target_update.description
-    if target_update.deadline is not None:
-        db_target.deadline = target_update.deadline
-    if target_update.status is not None:
-        db_target.status = target_update.status
-    if target_update.notes is not None:
-        db_target.notes = target_update.notes
+    for key, value in target.model_dump(exclude_unset=True).items():
+        setattr(db_target, key, value)
     
     db.commit()
     db.refresh(db_target)
-    
-    # Ensure notes is properly formatted for response
-    if isinstance(db_target.notes, list):
-        db_target.notes = json.dumps(db_target.notes)
-    elif db_target.notes is None:
-        db_target.notes = '[]'
     
     return db_target
 

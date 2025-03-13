@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
     
     # CORS Origins
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3005"]
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3005", "http://localhost:8005"]
     
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/ai_todo")
