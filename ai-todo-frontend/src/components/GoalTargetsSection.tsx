@@ -43,6 +43,7 @@ import {
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
   CheckCircle as CheckCircleIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
+  Undo as UndoIcon,
 } from '@mui/icons-material';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -81,7 +82,7 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showAddTargetModal, setShowAddTargetModal] = useState(false);
   const [editingTarget, setEditingTarget] = useState<GoalTarget | null>(null);
-  const [viewMode, setViewMode] = useState<'traditional' | 'inverted' | 'focus' | 'focus-context'>('traditional');
+  const [viewMode, setViewMode] = useState<string>('traditional');
   const [newTarget, setNewTarget] = useState<Partial<GoalTarget>>({
     title: '',
     description: '',
@@ -94,7 +95,7 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   // State for tracking expanded/collapsed state of parent targets
-  const [expandedTargets, setExpandedTargets] = useState<Record<string, boolean>>({});
+  const [collapsedTargets, setCollapsedTargets] = useState<string[]>([]);
 
   useEffect(() => {
     // Add CSS for drag and drop
@@ -361,6 +362,35 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
       if (onTargetUpdated) {
         onTargetUpdated(updatedTarget);
       }
+    } catch (error) {
+      console.error('Error updating target status:', error);
+      setError('Failed to update target status');
+    }
+  };
+
+  const handleToggleStatus = async (targetId: string) => {
+    const target = targets.find(t => t.id === targetId);
+    if (!target) return;
+    
+    const newStatus = target.status === 'completed' ? 'active' : 'completed';
+    
+    try {
+      const response = await fetch(`${config.apiUrl}/api/goals/${goalId}/targets/${targetId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update target status');
+      }
+      
+      // Update local state
+      setTargets(targets.map(t => 
+        t.id === targetId ? { ...t, status: newStatus } : t
+      ));
     } catch (error) {
       console.error('Error updating target status:', error);
       setError('Failed to update target status');
@@ -641,6 +671,107 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
     return rootTargets;
   };
 
+  // Helper function to recursively render parent chain for inverted tree view
+  const renderParentChain = (target: GoalTarget, depth: number) => {
+    if (!target.goaltarget_parent_id) return null;
+    
+    const parentTarget = targets.find(t => t.id === target.goaltarget_parent_id);
+    if (!parentTarget) return null;
+    
+    return (
+      <Box className="parent-chain" sx={{ mt: 1 }}>
+        <Box 
+          className="connector-line" 
+          sx={{ 
+            height: '20px', 
+            width: '2px', 
+            backgroundColor: '#ccc', 
+            margin: '0 auto' 
+          }} 
+        />
+        <Paper 
+          className="p-3 border rounded-lg hover:bg-gray-50 parent-item"
+          sx={{ 
+            backgroundColor: depth === 1 ? '#f8f9fa' : '#fff',
+            width: `calc(100% - ${depth * 20}px)`,
+            marginLeft: `${depth * 10}px`
+          }}
+          draggable
+          onDragStart={(e) => handleDragStart(e, parentTarget.id)}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, parentTarget.id)}
+        >
+          <Box className="flex justify-between items-start">
+            <Box className="flex items-center">
+              <IconButton 
+                size="small" 
+                onClick={() => handleToggleStatus(parentTarget.id)}
+              >
+                {parentTarget.status === 'completed' ? (
+                  <CheckCircleIcon color="success" />
+                ) : (
+                  <RadioButtonUncheckedIcon />
+                )}
+              </IconButton>
+              <Typography 
+                variant="body1" 
+                className={parentTarget.status === 'completed' ? 'line-through text-gray-500' : ''}
+                sx={{ fontWeight: 'medium' }}
+              >
+                {parentTarget.title}
+              </Typography>
+              {/* Show child count badge if there are children */}
+              {getChildTargets(parentTarget.id).length > 0 && (
+                <Box 
+                  component="span" 
+                  className="child-count-badge"
+                  sx={{ ml: 1 }}
+                >
+                  {getChildTargets(parentTarget.id).length}
+                </Box>
+              )}
+            </Box>
+            <Box>
+              <IconButton size="small" onClick={() => handleEditTarget(parentTarget)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={() => handleDeleteTarget(parentTarget.id)}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+          {parentTarget.deadline && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5 }} component="span">
+              <Typography variant="body2" className="text-gray-600" component="span">
+                Due: {new Date(parentTarget.deadline).toLocaleDateString()} {new Date(parentTarget.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+              {getDaysRemaining(parentTarget.deadline) && (
+                <Box 
+                  component="span"
+                  sx={{ 
+                    backgroundColor: getDaysRemaining(parentTarget.deadline)?.color,
+                    color: '#fff',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    display: 'inline-flex'
+                  }}
+                >
+                  {getDaysRemaining(parentTarget.deadline)?.text}
+                </Box>
+              )}
+            </Box>
+          )}
+        </Paper>
+        
+        {/* Recursively render parent's parent */}
+        {renderParentChain(parentTarget, depth + 1)}
+      </Box>
+    );
+  };
+
   // Helper functions
   const getDaysRemaining = (deadline: string | null) => {
     if (!deadline) return null;
@@ -679,20 +810,36 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
   // Toggle expansion state of a target
   const toggleExpand = (targetId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent triggering drag events
-    setExpandedTargets(prev => ({
-      ...prev,
-      [targetId]: !prev[targetId]
-    }));
+    setCollapsedTargets(prev => {
+      const index = prev.indexOf(targetId);
+      if (index === -1) {
+        return [...prev, targetId];
+      } else {
+        return [...prev.slice(0, index), ...prev.slice(index + 1)];
+      }
+    });
   };
 
   // Check if a target is expanded
   const isTargetExpanded = (targetId: string) => {
-    return expandedTargets[targetId] !== false; // Default to expanded if not set
+    return !collapsedTargets.includes(targetId); // Default to expanded if not set
   };
 
-  // Get all child targets for a parent
+  // Get all child targets for a parent, sorted by deadline
   const getChildTargets = (parentId: string) => {
-    return targets.filter(t => t.goaltarget_parent_id === parentId);
+    return targets
+      .filter(t => t.goaltarget_parent_id === parentId)
+      .sort((a, b) => {
+        // Sort by deadline (closest first)
+        if (a.deadline && b.deadline) {
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        }
+        // If only one has a deadline, it comes first
+        if (a.deadline) return -1;
+        if (b.deadline) return 1;
+        // If neither has a deadline, sort by position
+        return (a.position || 0) - (b.position || 0);
+      });
   };
 
   const renderTargets = () => {
@@ -710,235 +857,440 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
 
     // Focus mode - show only the next target
     if (viewMode === 'focus') {
-      // Find the next incomplete target
-      const nextTarget = targets.find(target => target.status !== 'completed');
-      if (!nextTarget) {
-        return <Typography>All targets are completed!</Typography>;
+      // Find the next incomplete leaf target (target with no children)
+      const nextLeafTarget = targets
+        .filter(target => getChildTargets(target.id).length === 0 && target.status !== 'completed')
+        .sort((a, b) => {
+          // Sort by deadline if available
+          if (a.deadline && b.deadline) {
+            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+          } else if (a.deadline) {
+            return -1; // a has deadline, b doesn't, so a comes first
+          } else if (b.deadline) {
+            return 1; // b has deadline, a doesn't, so b comes first
+          }
+          // If no deadlines, sort by position
+          return (a.position || 0) - (b.position || 0);
+        })[0];
+
+      if (!nextLeafTarget) {
+        return <Typography>All leaf targets are completed! Try adding more specific tasks or marking some as incomplete.</Typography>;
       }
 
       return (
         <Paper className="p-4 mb-4 border rounded-lg">
           <Box className="flex justify-between items-start mb-4">
-            <Typography variant="h6">{nextTarget.title}</Typography>
+            <Typography variant="h6">{nextLeafTarget.title}</Typography>
             <Box>
-              <IconButton onClick={() => handleEditTarget(nextTarget)}>
+              <IconButton onClick={() => handleEditTarget(nextLeafTarget)}>
                 <EditIcon />
               </IconButton>
-              <IconButton onClick={() => handleDeleteTarget(nextTarget.id)}>
+              <IconButton onClick={() => handleDeleteTarget(nextLeafTarget.id)}>
                 <DeleteIcon />
               </IconButton>
             </Box>
           </Box>
-          
-          <Typography variant="body1" className="mb-4">
-            {nextTarget.description}
-          </Typography>
-          
-          {nextTarget.deadline && (
-            <Typography variant="body2" className="text-gray-600 mb-4">
-              Due: {new Date(nextTarget.deadline).toLocaleDateString()} {new Date(nextTarget.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {nextLeafTarget.description && (
+            <Typography variant="body1" className="mb-3">
+              {nextLeafTarget.description}
             </Typography>
           )}
-          
-          <Box className="flex justify-end">
-            <Button 
-              variant="contained" 
-              color="primary" 
-              startIcon={<CheckIcon />}
-              onClick={() => handleUpdateStatus(nextTarget, 'completed')}
-            >
-              Complete
-            </Button>
-          </Box>
-          
-          {/* Indented parent context (simulated) */}
-          <Box className="pl-8 border-l-2 border-gray-300 ml-4">
-            <Typography variant="subtitle1" className="text-gray-700 font-medium">
-              Part of Goal
-            </Typography>
-          </Box>
+          {nextLeafTarget.deadline && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }} component="span">
+              <Typography variant="body2" component="span">
+                Due: {new Date(nextLeafTarget.deadline).toLocaleDateString()} {new Date(nextLeafTarget.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+              {getDaysRemaining(nextLeafTarget.deadline) && (
+                <Box 
+                  component="span"
+                  sx={{ 
+                    backgroundColor: getDaysRemaining(nextLeafTarget.deadline)?.color,
+                    color: '#fff',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    display: 'inline-flex'
+                  }}
+                >
+                  {getDaysRemaining(nextLeafTarget.deadline)?.text}
+                </Box>
+              )}
+            </Box>
+          )}
+          <Button
+            variant="contained"
+            color={nextLeafTarget.status === 'completed' ? 'secondary' : 'primary'}
+            onClick={() => handleToggleStatus(nextLeafTarget.id)}
+            startIcon={nextLeafTarget.status === 'completed' ? <UndoIcon /> : <CheckIcon />}
+            className="mb-4"
+          >
+            {nextLeafTarget.status === 'completed' ? 'Mark Incomplete' : 'Mark Complete'}
+          </Button>
+
+          {/* Show parent context if this is a child target */}
+          {nextLeafTarget.goaltarget_parent_id && (
+            <Box className="mt-4 pt-2 border-t border-gray-200">
+              <Typography variant="subtitle2" className="text-gray-700 mb-1">
+                Part of:
+              </Typography>
+              <Box className="pl-2 border-l-2 border-gray-300">
+                {(() => {
+                  // Get the full parent chain
+                  const getParentChain = () => {
+                    const chain: GoalTarget[] = [];
+                    let currentId: string | null = nextLeafTarget.goaltarget_parent_id;
+                    
+                    while (currentId) {
+                      const parent = targets.find(t => t.id === currentId);
+                      if (parent) {
+                        chain.push(parent);
+                        currentId = parent.goaltarget_parent_id;
+                      } else {
+                        currentId = null;
+                      }
+                    }
+                    
+                    return chain;
+                  };
+                  
+                  const parentChain = getParentChain();
+                  
+                  return parentChain.map((parent, index) => (
+                    <Box 
+                      key={parent.id}
+                      className="p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100 mb-1"
+                      onClick={() => setViewMode('traditional')}
+                    >
+                      <Typography variant="body2" component="span" className={index === 0 ? 'font-medium' : ''}>
+                        {parent.title}
+                      </Typography>
+                    </Box>
+                  ));
+                })()}
+              </Box>
+            </Box>
+          )}
         </Paper>
+      );
+    }
+
+    // Inverted tree view - show targets in a tree structure with children at the top
+    if (viewMode === 'inverted') {
+      // Get all root targets (targets with no parent)
+      const rootTargets = targets.filter(target => !target.goaltarget_parent_id);
+      
+      // Sort root targets by deadline
+      const sortedRootTargets = [...rootTargets].sort((a, b) => {
+        // Sort by deadline (closest first)
+        if (a.deadline && b.deadline) {
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        }
+        // If only one has a deadline, it comes first
+        if (a.deadline) return -1;
+        if (b.deadline) return 1;
+        // If neither has a deadline, sort by position
+        return (a.position || 0) - (b.position || 0);
+      });
+      
+      // Recursive function to render a target and its children (inverted)
+      const renderInvertedTarget = (target: GoalTarget, depth: number = 0) => {
+        // Get child targets and sort them by deadline (closest first)
+        const childTargets = getChildTargets(target.id);
+        
+        const hasChildren = childTargets.length > 0;
+        const isExpanded = !collapsedTargets.includes(target.id);
+        
+        return (
+          <Box key={target.id} className="mb-3">
+            {/* Render children above parent (if expanded) */}
+            {hasChildren && isExpanded && (
+              <Box 
+                className="pl-4 border-l-2 border-gray-300 ml-4 mb-2"
+                sx={{ opacity: 0.9 }}
+              >
+                {childTargets.map(child => renderInvertedTarget(child, depth + 1))}
+              </Box>
+            )}
+            
+            {/* Render the target itself */}
+            <Paper 
+              className={`p-3 border rounded-lg hover:bg-gray-50 ${hasChildren ? 'mb-0' : 'mb-2'}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, target.id)}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, target.id)}
+              sx={{
+                borderLeft: `4px solid ${getStatusColor(target.status)}`,
+                width: `calc(100% - ${depth * 10}px)`,
+                marginLeft: `${depth * 10}px`
+              }}
+            >
+              <Box className="flex justify-between items-start">
+                <Box className="flex items-center">
+                  {hasChildren && (
+                    <IconButton 
+                      size="small"
+                      className="expand-button"
+                      onClick={(e) => toggleExpand(target.id, e)}
+                      sx={{ mr: 1 }}
+                    >
+                      {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  )}
+                  
+                  <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+                    {target.status === 'completed' ? (
+                      <CheckCircleIcon color="success" style={{ marginRight: '8px' }} />
+                    ) : (
+                      <RadioButtonUncheckedIcon style={{ marginRight: '8px' }} />
+                    )}
+                    <Typography 
+                      variant="body1" 
+                      className={target.status === 'completed' ? 'line-through text-gray-500' : ''}
+                    >
+                      {target.title}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box>
+                  <IconButton size="small" onClick={() => handleEditTarget(target)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => handleDeleteTarget(target.id)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+              {target.deadline && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5 }} component="span">
+                  <Typography variant="body2" className="text-gray-600" component="span">
+                    Due: {new Date(target.deadline).toLocaleDateString()} {new Date(target.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Typography>
+                  {getDaysRemaining(target.deadline) && (
+                    <Box 
+                      component="span"
+                      sx={{ 
+                        backgroundColor: getDaysRemaining(target.deadline)?.color,
+                        color: '#fff',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        display: 'inline-flex'
+                      }}
+                    >
+                      {getDaysRemaining(target.deadline)?.text}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </Paper>
+          </Box>
+        );
+      };
+      
+      return (
+        <Box className="inverted-tree-view">
+          {sortedRootTargets.map(target => renderInvertedTarget(target))}
+        </Box>
       );
     }
 
     // Traditional mode - regular list view
     return (
       <List className="w-full">
-        {/* First render parent targets (those without a parent) */}
-        {targets.filter(target => !target.goaltarget_parent_id).map((target) => (
-          <Fragment key={target.id}>
-            <ListItem
-              className="mb-2 border rounded-lg hover:bg-gray-50 target-item"
-              style={{ marginBottom: '1rem' }}
-              secondaryAction={
-                <Box>
-                  <IconButton edge="end" onClick={() => handleEditTarget(target)}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton edge="end" onClick={() => handleDeleteTarget(target.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Box>
-              }
-              draggable={true}
-              onDragStart={(e) => handleDragStart(e, target.id)}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, target.id)}
-              data-target-id={target.id}
-            >
-              <ListItemText
-                primary={
-                  <Box display="flex" alignItems="center">
-                    {/* Show expand/collapse button if target has children */}
-                    {getChildTargets(target.id).length > 0 && (
-                      <IconButton 
-                        size="small"
-                        className="expand-button"
-                        onClick={(e) => toggleExpand(target.id, e)}
-                        style={{
-                          marginRight: '8px',
-                          padding: '4px',
-                          backgroundColor: '#f0f0f0',
-                          border: '1px solid #e0e0e0'
-                        }}
-                      >
-                        {isTargetExpanded(target.id) ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                      </IconButton>
-                    )}
-                    
-                    <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
-                      {target.status === 'completed' ? (
-                        <CheckCircleIcon color="success" style={{ marginRight: '8px' }} />
-                      ) : (
-                        <RadioButtonUncheckedIcon style={{ marginRight: '8px' }} />
-                      )}
-                      {target.title}
-                      
-                      {/* Show child count badge if there are children */}
-                      {getChildTargets(target.id).length > 0 && (
-                        <Box 
-                          component="span" 
-                          className="child-count-badge"
-                        >
-                          {getChildTargets(target.id).length}
-                        </Box>
-                      )}
-                    </Box>
+        {/* First render parent targets (those without a parent), sorted by deadline */}
+        {targets
+          .filter(target => !target.goaltarget_parent_id)
+          .sort((a, b) => {
+            // Sort by deadline (closest first)
+            if (a.deadline && b.deadline) {
+              return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+            }
+            // If only one has a deadline, it comes first
+            if (a.deadline) return -1;
+            if (b.deadline) return 1;
+            // If neither has a deadline, sort by position
+            return (a.position || 0) - (b.position || 0);
+          })
+          .map((target) => (
+            <Fragment key={target.id}>
+              <ListItem
+                className="mb-2 border rounded-lg hover:bg-gray-50 target-item"
+                style={{ marginBottom: '1rem' }}
+                secondaryAction={
+                  <Box>
+                    <IconButton edge="end" onClick={() => handleEditTarget(target)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton edge="end" onClick={() => handleDeleteTarget(target.id)}>
+                      <DeleteIcon />
+                    </IconButton>
                   </Box>
                 }
-                secondary={
-                  <>
-                    {target.deadline && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" className="text-gray-600">
-                          Due: {new Date(target.deadline).toLocaleDateString()} {new Date(target.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                        {getDaysRemaining(target.deadline) && (
+                draggable={true}
+                onDragStart={(e) => handleDragStart(e, target.id)}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, target.id)}
+                data-target-id={target.id}
+              >
+                <ListItemText
+                  primary={
+                    <Box display="flex" alignItems="center">
+                      {/* Show expand/collapse button if target has children */}
+                      {getChildTargets(target.id).length > 0 && (
+                        <IconButton 
+                          size="small"
+                          className="expand-button"
+                          onClick={(e) => toggleExpand(target.id, e)}
+                          style={{
+                            marginRight: '8px',
+                            padding: '4px',
+                            backgroundColor: '#f0f0f0',
+                            border: '1px solid #e0e0e0'
+                          }}
+                        >
+                          {isTargetExpanded(target.id) ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                        </IconButton>
+                      )}
+                      
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+                        {target.status === 'completed' ? (
+                          <CheckCircleIcon color="success" style={{ marginRight: '8px' }} />
+                        ) : (
+                          <RadioButtonUncheckedIcon style={{ marginRight: '8px' }} />
+                        )}
+                        {target.title}
+                        
+                        {/* Show child count badge if there are children */}
+                        {getChildTargets(target.id).length > 0 && (
                           <Box 
-                            sx={{ 
-                              backgroundColor: getDaysRemaining(target.deadline)?.color,
-                              color: '#fff',
-                              borderRadius: '4px',
-                              padding: '2px 6px',
-                              fontSize: '0.75rem',
-                              fontWeight: 'bold',
-                              display: 'inline-flex'
-                            }}
+                            component="span" 
+                            className="child-count-badge"
                           >
-                            {getDaysRemaining(target.deadline)?.text}
+                            {getChildTargets(target.id).length}
                           </Box>
                         )}
                       </Box>
-                    )}
-                    {target.description && (
-                      <Typography variant="body2" className="text-gray-600">
-                        {target.description}
-                      </Typography>
-                    )}
-                  </>
-                }
-              />
-            </ListItem>
-            
-            {/* Render children if parent is expanded */}
-            {isTargetExpanded(target.id) && getChildTargets(target.id).length > 0 && (
-              <Box className="target-children-container mb-3">
-                {getChildTargets(target.id).map(childTarget => (
-                  <ListItem
-                    key={childTarget.id}
-                    className="mb-2 border rounded-lg hover:bg-gray-50 target-item-child"
-                    style={{ marginBottom: '0.75rem' }}
-                    secondaryAction={
-                      <Box>
-                        <IconButton edge="end" onClick={() => handleEditTarget(childTarget)} size="small">
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton edge="end" onClick={() => handleDeleteTarget(childTarget.id)} size="small">
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    }
-                    draggable={true}
-                    onDragStart={(e) => handleDragStart(e, childTarget.id)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, childTarget.id)}
-                    data-target-id={childTarget.id}
-                  >
-                    <ListItemText
-                      primary={
-                        <Box display="flex" alignItems="center">
-                          <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
-                            {childTarget.status === 'completed' ? (
-                              <CheckCircleIcon color="success" style={{ marginRight: '8px', fontSize: '0.9rem' }} />
-                            ) : (
-                              <RadioButtonUncheckedIcon style={{ marginRight: '8px', fontSize: '0.9rem' }} />
-                            )}
-                            <Typography variant="body2" className="child-target-text">{childTarget.title}</Typography>
-                          </Box>
-                        </Box>
-                      }
-                      secondary={
-                        <>
-                          {childTarget.deadline && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="caption" className="text-gray-600">
-                                Due: {new Date(childTarget.deadline).toLocaleDateString()} {new Date(childTarget.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </Typography>
-                              {getDaysRemaining(childTarget.deadline) && (
-                                <Box 
-                                  sx={{ 
-                                    backgroundColor: getDaysRemaining(childTarget.deadline)?.color,
-                                    color: '#fff',
-                                    borderRadius: '4px',
-                                    padding: '1px 4px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 'bold',
-                                    display: 'inline-flex'
-                                  }}
-                                >
-                                  {getDaysRemaining(childTarget.deadline)?.text}
-                                </Box>
-                              )}
+                    </Box>
+                  }
+                  secondary={
+                    <>
+                      {target.deadline && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} component="span">
+                          <Typography variant="body2" className="text-gray-600" component="span">
+                            Due: {new Date(target.deadline).toLocaleDateString()} {new Date(target.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
+                          {getDaysRemaining(target.deadline) && (
+                            <Box 
+                              component="span"
+                              sx={{ 
+                                backgroundColor: getDaysRemaining(target.deadline)?.color,
+                                color: '#fff',
+                                borderRadius: '4px',
+                                padding: '2px 6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold',
+                                display: 'inline-flex'
+                              }}
+                            >
+                              {getDaysRemaining(target.deadline)?.text}
                             </Box>
                           )}
-                          {childTarget.description && (
-                            <Typography variant="caption" className="text-gray-600">
-                              {childTarget.description}
-                            </Typography>
-                          )}
-                        </>
+                        </Box>
+                      )}
+                      {target.description && (
+                        <Typography variant="body2" className="text-gray-600">
+                          {target.description}
+                        </Typography>
+                      )}
+                    </>
+                  }
+                />
+              </ListItem>
+              
+              {/* Render children if parent is expanded */}
+              {isTargetExpanded(target.id) && getChildTargets(target.id).length > 0 && (
+                <Box className="target-children-container mb-3">
+                  {getChildTargets(target.id).map(childTarget => (
+                    <ListItem
+                      key={childTarget.id}
+                      className="mb-2 border rounded-lg hover:bg-gray-50 target-item-child"
+                      style={{ marginBottom: '0.75rem' }}
+                      secondaryAction={
+                        <Box>
+                          <IconButton edge="end" onClick={() => handleEditTarget(childTarget)} size="small">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton edge="end" onClick={() => handleDeleteTarget(childTarget.id)} size="small">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       }
-                    />
-                  </ListItem>
-                ))}
-              </Box>
-            )}
-          </Fragment>
-        ))}
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, childTarget.id)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, childTarget.id)}
+                      data-target-id={childTarget.id}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center">
+                            <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+                              {childTarget.status === 'completed' ? (
+                                <CheckCircleIcon color="success" style={{ marginRight: '8px', fontSize: '0.9rem' }} />
+                              ) : (
+                                <RadioButtonUncheckedIcon style={{ marginRight: '8px', fontSize: '0.9rem' }} />
+                              )}
+                              <Typography variant="body2" className="child-target-text">{childTarget.title}</Typography>
+                            </Box>
+                          </Box>
+                        }
+                        secondary={
+                          <>
+                            {childTarget.deadline && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} component="span">
+                                <Typography variant="caption" className="text-gray-600" component="span">
+                                  Due: {new Date(childTarget.deadline).toLocaleDateString()} {new Date(childTarget.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                                {getDaysRemaining(childTarget.deadline) && (
+                                  <Box 
+                                    component="span"
+                                    sx={{ 
+                                      backgroundColor: getDaysRemaining(childTarget.deadline)?.color,
+                                      color: '#fff',
+                                      borderRadius: '4px',
+                                      padding: '1px 4px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 'bold',
+                                      display: 'inline-flex'
+                                    }}
+                                  >
+                                    {getDaysRemaining(childTarget.deadline)?.text}
+                                  </Box>
+                                )}
+                              </Box>
+                            )}
+                            {childTarget.description && (
+                              <Typography variant="caption" className="text-gray-600">
+                                {childTarget.description}
+                              </Typography>
+                            )}
+                          </>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </Box>
+              )}
+            </Fragment>
+          ))}
       </List>
     );
   };
@@ -946,39 +1298,34 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
   return (
     <Paper className="p-6 bg-white shadow rounded-lg">
       <Box className="flex justify-between items-center mb-4">
-        <Typography variant="h6">Goal Targets</Typography>
+        <Typography variant="h6" className="font-bold">Goal Targets</Typography>
         <Box className="flex items-center">
           <ToggleButtonGroup
             value={viewMode}
             exclusive
-            onChange={handleViewModeChange}
+            onChange={(e, newMode) => newMode && setViewMode(newMode)}
+            aria-label="view mode"
             size="small"
-            className="mr-4"
           >
             <ToggleButton value="traditional" aria-label="traditional view">
               <Tooltip title="Traditional View">
-                <div>
-                  <ViewListIcon />
-                </div>
+                <ViewListIcon />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="inverted" aria-label="inverted tree view">
+              <Tooltip title="Inverted Tree View">
+                <AccountTreeIcon />
               </Tooltip>
             </ToggleButton>
             <ToggleButton value="focus" aria-label="focus view">
               <Tooltip title="Focus Mode">
-                <div>
-                  <CenterFocusStrongIcon />
-                </div>
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="focus-context" aria-label="focus context view">
-              <Tooltip title="Focus with Context">
-                <div>
-                  <AccountTreeIcon />
-                </div>
+                <CenterFocusStrongIcon />
               </Tooltip>
             </ToggleButton>
           </ToggleButtonGroup>
           <Button
-            variant="outlined"
+            variant="contained"
+            color="primary"
             startIcon={<AddIcon />}
             onClick={() => {
               setEditingTarget(null);
@@ -995,6 +1342,7 @@ const GoalTargetsSection: React.FC<GoalTargetsSectionProps> = ({
               setValidationErrors({});
               setShowAddTargetModal(true);
             }}
+            className="ml-2"
           >
             Add Target
           </Button>
