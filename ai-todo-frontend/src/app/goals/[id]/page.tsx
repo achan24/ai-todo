@@ -44,6 +44,7 @@ import TaskBreakdownDialog from '../../../components/TaskBreakdownDialog';
 import ConversationList from '@/components/ConversationList';
 import NotesSection from '@/components/NotesSection';
 import SituationsSection from '@/components/SituationsSection';
+import GoalTargetsSection from '@/components/GoalTargetsSection';
 import config from '@/config/config';
 
 // Task Reminder Tooltip component
@@ -165,6 +166,18 @@ interface Conversation {
   goal_id: number;
 }
 
+interface GoalTarget {
+  id: number;
+  title: string;
+  description: string | null;
+  deadline: string | null;
+  status: 'concept' | 'active' | 'completed' | 'abandoned';
+  notes: string;
+  goal_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface Goal {
   id: number;
   title: string;
@@ -175,6 +188,7 @@ interface Goal {
   tasks: Task[];
   conversations: Conversation[];
   current_strategy_id: number | null;
+  targets: GoalTarget[];
 }
 
 interface TaskItemProps {
@@ -571,7 +585,8 @@ export default function GoalPage() {
         experiences: data.experiences || [], // Ensure experiences is always an array
         strategies: data.strategies || [], // Ensure strategies is always an array
         tasks: data.tasks || [], // Ensure tasks is always an array
-        conversations: data.conversations || [] // Ensure conversations is always an array
+        conversations: data.conversations || [], // Ensure conversations is always an array
+        targets: data.targets || [] // Ensure targets is always an array
       });
 
       const tasksResponse = await fetch(`${config.apiUrl}/api/goals/${params.id}/tasks`);
@@ -1853,6 +1868,11 @@ export default function GoalPage() {
           {/* Situations Section */}
           <div className="mb-8">
             <SituationsSection goalId={params.id} />
+          </div>
+
+          {/* Goal Targets Section */}
+          <div className="mb-8">
+            <GoalTargetsSection goalId={String(params.id)} />
           </div>
 
           {/* Add Metric Modal */}

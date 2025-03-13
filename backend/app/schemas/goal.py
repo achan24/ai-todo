@@ -64,6 +64,46 @@ class Metric(MetricBase):
             list: encode_json_field
         }
 
+class GoalTargetStatus(str, Enum):
+    concept = "concept"
+    active = "active"
+    paused = "paused"
+    achieved = "achieved"
+
+class GoalTargetBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    deadline: Optional[datetime] = None
+    status: GoalTargetStatus = GoalTargetStatus.concept
+    notes: str = '[]'  # SQLite JSON field comes as string
+
+    class Config:
+        json_encoders = {
+            list: encode_json_field
+        }
+
+class GoalTargetCreate(GoalTargetBase):
+    goal_id: int
+
+class GoalTargetUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    deadline: Optional[datetime] = None
+    status: Optional[GoalTargetStatus] = None
+    notes: Optional[str] = None
+
+class GoalTarget(GoalTargetBase):
+    id: str
+    goal_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            list: encode_json_field
+        }
+
 class GoalBase(BaseModel):
     title: str
     description: str | None = None
@@ -88,6 +128,7 @@ class Goal(GoalBase):
     updated_at: datetime
     tasks: List[Task] = []
     metrics: List[Metric] = []
+    targets: List[GoalTarget] = []
     experiences: List[Experience] = []
     strategies: List[Strategy] = []
     conversations: List[Conversation] = []

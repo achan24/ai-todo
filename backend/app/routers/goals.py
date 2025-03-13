@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Any, Dict
 import json
+import uuid
 
 from ..database import get_db
-from ..models.goal import Goal, Metric
+from ..models.goal import Goal, Metric, GoalTarget
 from ..models.task import Task
-from ..schemas.goal import GoalCreate, GoalUpdate, Goal as GoalSchema, MetricCreate, Metric as MetricSchema
+from ..schemas.goal import (
+    GoalCreate, GoalUpdate, Goal as GoalSchema, 
+    MetricCreate, Metric as MetricSchema,
+    GoalTargetCreate, GoalTargetUpdate, GoalTarget as GoalTargetSchema
+)
 from ..schemas.task import TaskCreate, Task as TaskSchema
 from ..services.task_service import process_task_fields
 
@@ -58,6 +63,14 @@ def prepare_goal_for_response(goal):
         for task in goal.tasks:
             process_task_fields(task)
     
+    # Process targets in the goal (ensure notes is properly formatted)
+    if goal.targets:
+        for target in goal.targets:
+            if isinstance(target.notes, list):
+                target.notes = json.dumps(target.notes)
+            elif target.notes is None:
+                target.notes = '[]'
+    
     # Process subgoals recursively
     for subgoal in goal.subgoals:
         # Process metrics in subgoal
@@ -68,6 +81,14 @@ def prepare_goal_for_response(goal):
         if subgoal.tasks:
             for task in subgoal.tasks:
                 process_task_fields(task)
+        
+        # Process targets in subgoal
+        if subgoal.targets:
+            for target in subgoal.targets:
+                if isinstance(target.notes, list):
+                    target.notes = json.dumps(target.notes)
+                elif target.notes is None:
+                    target.notes = '[]'
         
         # Continue recursion for deeper subgoals
         prepare_goal_for_response(subgoal)
@@ -312,3 +333,155 @@ async def create_metric(
         db.refresh(db_metric)
 
     return db_metric
+
+@router.get("/{goal_id}/targets", response_model=List[GoalTargetSchema])
+async def get_goal_targets(
+    goal_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get all targets for a specific goal"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    targets = db.query(GoalTarget).filter(GoalTarget.goal_id == goal_id).all()
+    
+    # Ensure notes field is properly formatted
+    for target in targets:
+        if isinstance(target.notes, list):
+            target.notes = json.dumps(target.notes)
+        elif target.notes is None:
+            target.notes = '[]'
+    
+    return targets
+
+@router.post("/{goal_id}/targets", response_model=GoalTargetSchema)
+async def create_goal_target(
+    goal_id: int,
+    target: GoalTargetCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new target for a goal"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    # Generate a unique ID for the target
+    target_id = str(uuid.uuid4())
+    
+    # Create the target
+    db_target = GoalTarget(
+        id=target_id,
+        title=target.title,
+        description=target.description,
+        deadline=target.deadline,
+        status=target.status,
+        notes=target.notes,
+        goal_id=goal_id
+    )
+    
+    db.add(db_target)
+    db.commit()
+    db.refresh(db_target)
+    
+    # Ensure notes is properly formatted for response
+    if isinstance(db_target.notes, list):
+        db_target.notes = json.dumps(db_target.notes)
+    elif db_target.notes is None:
+        db_target.notes = '[]'
+    
+    return db_target
+
+@router.get("/{goal_id}/targets/{target_id}", response_model=GoalTargetSchema)
+async def get_goal_target(
+    goal_id: int,
+    target_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get a specific target by ID"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    target = db.query(GoalTarget).filter(
+        GoalTarget.id == target_id,
+        GoalTarget.goal_id == goal_id
+    ).first()
+    
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    
+    # Ensure notes is properly formatted for response
+    if isinstance(target.notes, list):
+        target.notes = json.dumps(target.notes)
+    elif target.notes is None:
+        target.notes = '[]'
+    
+    return target
+
+@router.put("/{goal_id}/targets/{target_id}", response_model=GoalTargetSchema)
+async def update_goal_target(
+    goal_id: int,
+    target_id: str,
+    target_update: GoalTargetUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update a target"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    db_target = db.query(GoalTarget).filter(
+        GoalTarget.id == target_id,
+        GoalTarget.goal_id == goal_id
+    ).first()
+    
+    if not db_target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    
+    # Update target fields
+    if target_update.title is not None:
+        db_target.title = target_update.title
+    if target_update.description is not None:
+        db_target.description = target_update.description
+    if target_update.deadline is not None:
+        db_target.deadline = target_update.deadline
+    if target_update.status is not None:
+        db_target.status = target_update.status
+    if target_update.notes is not None:
+        db_target.notes = target_update.notes
+    
+    db.commit()
+    db.refresh(db_target)
+    
+    # Ensure notes is properly formatted for response
+    if isinstance(db_target.notes, list):
+        db_target.notes = json.dumps(db_target.notes)
+    elif db_target.notes is None:
+        db_target.notes = '[]'
+    
+    return db_target
+
+@router.delete("/{goal_id}/targets/{target_id}")
+async def delete_goal_target(
+    goal_id: int,
+    target_id: str,
+    db: Session = Depends(get_db)
+):
+    """Delete a target"""
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == 1).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    
+    db_target = db.query(GoalTarget).filter(
+        GoalTarget.id == target_id,
+        GoalTarget.goal_id == goal_id
+    ).first()
+    
+    if not db_target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    
+    db.delete(db_target)
+    db.commit()
+    
+    return {"message": "Target deleted successfully"}

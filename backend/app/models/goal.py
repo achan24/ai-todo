@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text, Float, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text, Float, Boolean, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects import sqlite
 from datetime import datetime
 import enum
+import uuid
 from ..database import Base
 from .task import Task
 from .conversation import Conversation
@@ -33,6 +34,28 @@ class Metric(Base):
     goal = relationship("Goal", back_populates="metrics")
     tasks = relationship("Task", back_populates="metric")
 
+class GoalTargetStatus(str, enum.Enum):
+    concept = "concept"
+    active = "active"
+    paused = "paused"
+    achieved = "achieved"
+
+class GoalTarget(Base):
+    __tablename__ = "goal_targets"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    deadline = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String, default=GoalTargetStatus.concept, nullable=False)
+    notes = Column(sqlite.JSON, nullable=False, server_default='[]')  # Array of text entries
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
+
+    # Relationships
+    goal = relationship("Goal", back_populates="targets")
+
 class Goal(Base):
     __tablename__ = "goals"
 
@@ -51,6 +74,7 @@ class Goal(Base):
     parent = relationship("Goal", remote_side=[id], back_populates="subgoals")
     subgoals = relationship("Goal", back_populates="parent", cascade="all, delete-orphan")
     metrics = relationship("Metric", back_populates="goal", cascade="all, delete-orphan")
+    targets = relationship("GoalTarget", back_populates="goal", cascade="all, delete-orphan")
     experiences = relationship("Experience", back_populates="goal", cascade="all, delete-orphan")
     strategies = relationship("Strategy", back_populates="goal", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="goal", cascade="all, delete-orphan")

@@ -84,6 +84,65 @@ This version **automates as much as possible** so you don’t have to remember a
 
 ---
 
+## **🔹 Goal Targets System (Natural Language Success Markers)**
+
+### **Overview**
+- **Goal Targets** provide ADHD-friendly, natural language markers for goal success
+- Users can describe what success looks like in their own words
+- Each target has a deadline to track temporal progress
+- Targets avoid rigid mathematical metrics while still providing clear success criteria
+- AI analyzes target descriptions to prioritize goals and recommend tasks
+
+### **Database Schema Updates Needed**
+1. Add `goal_targets` table:
+   - `id`: UUID primary key
+   - `title`: Clear identifier
+   - `description`: Free-form text description
+   - `deadline`: When target should be achieved
+   - `status`: Enum ('concept', 'active', 'paused', 'achieved')
+   - `notes`: Array of text entries for periodic reflections
+   - `goal_id`: Foreign key to goals table
+
+### **ADHD-Friendly Features**
+1. **Natural Language Processing**:
+   - Users describe targets in their own words
+   - AI extracts meaning, importance, and urgency
+   - No need to quantify or formulate mathematically
+
+2. **Time Blindness Accommodation**:
+   - Built-in deadline buffer suggestions
+   - Visual timeline of approaching target deadlines
+   - Automatic reminders scaled to urgency
+
+3. **Reduced Decision Fatigue**:
+   - Suggested target prompts (e.g., "I'll know I succeeded when...")
+   - Template targets based on goal category
+   - Simple status tracking without complex metrics
+
+### **Integration with AI Recommendation System**
+- AI analyzes target descriptions, deadlines, and status
+- Combines with goal priority to recommend focused tasks
+- Predicts which targets need attention based on patterns
+- Creates personalized "What should I do now?" recommendations
+- Provides natural language explanation of recommendations
+
+### **Example Goal and Targets**
+```
+Goal: "Improve Public Speaking"
+  Target 1: "Feel comfortable during department presentations" (April 1)
+  Target 2: "Get positive feedback on my delivery style" (May 15)
+  Target 3: "Successfully pitch project to leadership team" (June 30)
+```
+
+### **Next Implementation Steps**
+1. Create migration for new `goal_targets` table
+2. Add CRUD endpoints under `/goals/{id}/targets`
+3. Build NLP analysis service for target descriptions
+4. Create UI components with natural language prompts
+5. Enhance AI recommendation to incorporate target data
+
+---
+
 ## **🔹 AI Task Prioritization Implementation**
 
 ### **Database Schema Updates Needed**
