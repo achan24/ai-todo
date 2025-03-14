@@ -26,7 +26,6 @@ import './calendar.css';
 import config from '@/config/config';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import './calendar.css';
 
 // Define the Task interface based on your existing schema
 interface Task {
@@ -42,6 +41,8 @@ interface Task {
   estimated_minutes?: number;
   subtasks: Task[];
   metadata?: string; // JSON string for storing additional data
+  goal_id?: number;
+  parent_id?: number;
 }
 
 // Define the CalendarEvent interface
@@ -124,20 +125,19 @@ export default function CalendarPage() {
     };
   }, []);
 
-  // Fetch all tasks and convert to calendar events
+  // Fetch tasks when component mounts
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${config.apiUrl}/api/tasks`);
+        const response = await fetch(`${config.apiUrl}/api/tasks?timestamp=${Date.now()}&limit=1000`);
         if (!response.ok) {
           throw new Error('Failed to fetch tasks');
         }
-        const data = await response.json();
-        setTasks(data);
         
-        // Filter starred tasks - include both top-level tasks and subtasks
-        // First, collect all tasks including subtasks into a flat array
+        const data = await response.json();
+        
+        // Flatten tasks to get all tasks including subtasks
         const flattenTasks = (tasks: Task[]): Task[] => {
           let result: Task[] = [];
           tasks.forEach(task => {
@@ -157,7 +157,15 @@ export default function CalendarPage() {
         setTasks(data);
         
         // Filter for starred and non-completed tasks
-        const starred = allTasks.filter(task => task.is_starred && !task.completed);
+        const starred = allTasks.filter(task => {
+          // Convert is_starred to a boolean if it's not already
+          const isStarred = typeof task.is_starred === 'string' 
+            ? task.is_starred === 'true' 
+            : Boolean(task.is_starred);
+          
+          return isStarred === true && !task.completed;
+        });
+        
         setStarredTasks(starred);
         
         // Convert tasks with scheduled_time to calendar events
@@ -176,20 +184,16 @@ export default function CalendarPage() {
         };
         
         const tasksWithScheduledTime = getAllTasksWithScheduledTime(data);
-        console.log('Tasks with scheduled time:', tasksWithScheduledTime);
         
         const events = tasksWithScheduledTime.map((task: Task) => {
           const startTime = new Date(task.scheduled_time || '');
-          // Default end time is 1 hour after start time
           const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
           
-          // Extract timer data from metadata if available
           let timerData = { elapsedTime: undefined, timerActive: false };
           if (task.metadata) {
             try {
               const metadata = JSON.parse(task.metadata);
               if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
-                // Only use timer data if it has a non-zero elapsed time
                 timerData = metadata.timerData;
               }
             } catch (e) {
@@ -206,7 +210,7 @@ export default function CalendarPage() {
             is_starred: task.is_starred,
             completed: task.completed,
             elapsedTime: timerData.elapsedTime,
-            timerActive: task.completed ? false : timerData.timerActive, // Don't activate timer for completed tasks
+            timerActive: task.completed ? false : timerData.timerActive,
             timerLastUpdated: timerData.timerActive ? Date.now() : undefined
           };
         });
@@ -223,9 +227,117 @@ export default function CalendarPage() {
     fetchTasks();
   }, []);
 
+  // Add a useEffect to refresh tasks when the page gains focus
+  useEffect(() => {
+    const fetchTasksOnFocus = async () => {
+      try {
+        console.log('Refreshing tasks on focus');
+        const response = await fetch(`${config.apiUrl}/api/tasks?timestamp=${Date.now()}&limit=1000`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch tasks');
+        }
+        
+        const data = await response.json();
+        
+        // Flatten tasks to get all tasks including subtasks
+        const flattenTasks = (tasks: Task[]): Task[] => {
+          let result: Task[] = [];
+          tasks.forEach(task => {
+            result.push(task);
+            if (task.subtasks && task.subtasks.length > 0) {
+              result = result.concat(flattenTasks(task.subtasks));
+            }
+          });
+          return result;
+        };
+        
+        // Get all tasks (including subtasks) in a flat array for starred tasks display
+        const allTasks = flattenTasks(data);
+        
+        // Keep the original task structure for proper subtask lookup
+        setTasks(data);
+        
+        // Filter for starred and non-completed tasks
+        const starred = allTasks.filter(task => {
+          // Convert is_starred to a boolean if it's not already
+          const isStarred = typeof task.is_starred === 'string' 
+            ? task.is_starred === 'true' 
+            : Boolean(task.is_starred);
+          
+          return isStarred === true && !task.completed;
+        });
+        
+        setStarredTasks(starred);
+        
+        // Update calendar events
+        const getAllTasksWithScheduledTime = (tasks: Task[]): Task[] => {
+          let result: Task[] = [];
+          tasks.forEach(task => {
+            if (task.scheduled_time) {
+              result.push(task);
+            }
+            if (task.subtasks && task.subtasks.length > 0) {
+              result = result.concat(getAllTasksWithScheduledTime(task.subtasks));
+            }
+          });
+          return result;
+        };
+        
+        const tasksWithScheduledTime = getAllTasksWithScheduledTime(data);
+        
+        const events = tasksWithScheduledTime.map((task: Task) => {
+          const startTime = new Date(task.scheduled_time || '');
+          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+          
+          let timerData = { elapsedTime: undefined, timerActive: false };
+          if (task.metadata) {
+            try {
+              const metadata = JSON.parse(task.metadata);
+              if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
+                timerData = metadata.timerData;
+              }
+            } catch (e) {
+              console.error('Error parsing task metadata:', e);
+            }
+          }
+          
+          return {
+            id: task.id.toString(),
+            title: task.title,
+            start: startTime,
+            end: endTime,
+            priority: task.priority,
+            is_starred: task.is_starred,
+            completed: task.completed,
+            elapsedTime: timerData.elapsedTime,
+            timerActive: task.completed ? false : timerData.timerActive,
+            timerLastUpdated: timerData.timerActive ? Date.now() : undefined
+          };
+        });
+        
+        setCalendarEvents(events);
+      } catch (error) {
+        console.error('Error refreshing tasks on focus:', error);
+      }
+    };
+
+    // Add event listener for when the window gains focus
+    window.addEventListener('focus', fetchTasksOnFocus);
+    
+    // Initial fetch when component mounts
+    fetchTasksOnFocus();
+    
+    // Clean up event listener when component unmounts
+    return () => {
+      window.removeEventListener('focus', fetchTasksOnFocus);
+    };
+  }, []);
+
   // Toggle star status
   const toggleStar = async (taskId: number) => {
     try {
+      console.log('Toggling star for task ID:', taskId);
+      
       const response = await fetch(`${config.apiUrl}/api/tasks/${taskId}/star`, {
         method: 'PATCH',
       });
@@ -236,17 +348,46 @@ export default function CalendarPage() {
       
       const updatedTask = await response.json();
       
-      // Update tasks state
-      setTasks(prevTasks => 
-        prevTasks.map(task => 
-          task.id === taskId ? { ...task, is_starred: updatedTask.is_starred } : task
-        )
-      );
+      // Update tasks state recursively to handle both top-level tasks and subtasks
+      setTasks(prevTasks => {
+        const updateTaskStarStatus = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, is_starred: updatedTask.is_starred };
+            }
+            if (task.subtasks && task.subtasks.length > 0) {
+              return { ...task, subtasks: updateTaskStarStatus(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        
+        return updateTaskStarStatus(prevTasks);
+      });
       
       // Update starred tasks
       if (updatedTask.is_starred) {
-        setStarredTasks(prev => [...prev, updatedTask]);
+        // Add to starred tasks if not already there
+        setStarredTasks(prev => {
+          // First check if the task already exists in the starred tasks list
+          const exists = prev.some(task => task.id === taskId);
+          
+          if (exists) {
+            return prev;
+          }
+          
+          // If not, find the complete task object from the tasks hierarchy
+          const taskToAdd = findTaskById(taskId, tasks);
+          if (taskToAdd) {
+            return [...prev, taskToAdd];
+          }
+          
+          // If we can't find the task in the hierarchy, use the updatedTask from the API
+          // This ensures we always add the task even if it's not found in the hierarchy
+          return [...prev, updatedTask];
+        });
       } else {
+        // Remove from starred tasks
         setStarredTasks(prev => prev.filter(task => task.id !== taskId));
       }
       
@@ -256,27 +397,10 @@ export default function CalendarPage() {
           event.id === taskId.toString() ? { ...event, is_starred: updatedTask.is_starred } : event
         )
       );
+      
     } catch (error) {
       console.error('Error toggling star status:', error);
     }
-  };
-  
-  // Helper function to find a task or subtask by ID
-  const findTaskById = (taskId: number, taskList: Task[]): Task | null => {
-    for (const task of taskList) {
-      if (task.id === taskId) {
-        return task;
-      }
-      
-      if (task.subtasks && task.subtasks.length > 0) {
-        const subtask = findTaskById(taskId, task.subtasks);
-        if (subtask) {
-          return subtask;
-        }
-      }
-    }
-    
-    return null;
   };
   
   // Toggle task completion status
@@ -343,11 +467,45 @@ export default function CalendarPage() {
       }
       
       const updatedTask = await response.json();
-      console.log('Task completion status updated:', updatedTask);
+      
+      // Update tasks state with server response recursively
+      setTasks(prevTasks => {
+        const updateTaskCompletionStatus = (tasks: Task[]): Task[] => {
+          return tasks.map(task => {
+            if (task.id === taskId) {
+              return { ...task, completed: updatedTask.completed };
+            }
+            if (task.subtasks && task.subtasks.length > 0) {
+              return { ...task, subtasks: updateTaskCompletionStatus(task.subtasks) };
+            }
+            return task;
+          });
+        };
+        
+        return updateTaskCompletionStatus(prevTasks);
+      });
       
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
+  };
+  
+  // Helper function to find a task or subtask by ID
+  const findTaskById = (taskId: number, taskList: Task[]): Task | null => {
+    for (const task of taskList) {
+      if (task.id === taskId) {
+        return task;
+      }
+      
+      if (task.subtasks && task.subtasks.length > 0) {
+        const subtask = findTaskById(taskId, task.subtasks);
+        if (subtask) {
+          return subtask;
+        }
+      }
+    }
+    
+    return null;
   };
   
   // Toggle timer for a task
@@ -439,8 +597,6 @@ export default function CalendarPage() {
     ].join(':');
   };
 
-  // We're using the findTaskById function defined earlier
-  
   // Handle task drop from starred/all tasks list onto calendar
   const handleExternalDrop = async (taskId: number, date: Date, hour: number, minute: number = 0) => {
     try {
@@ -471,7 +627,10 @@ export default function CalendarPage() {
           end: new Date(scheduledDateTime.getTime() + 60 * 60 * 1000), // Add 1 hour to the start time
           priority: task.priority,
           is_starred: task.is_starred,
-          completed: task.completed
+          completed: task.completed,
+          elapsedTime: undefined,
+          timerActive: false,
+          timerLastUpdated: undefined
         };
         
         if (existingEventIndex >= 0) {
@@ -519,19 +678,24 @@ export default function CalendarPage() {
       
       // Update starred tasks if it's a starred task
       if (updatedTask.is_starred) {
-        // First check if the task is already in the starred tasks list
+        // First check if the task already exists in the starred tasks list
         setStarredTasks(prev => {
-          const taskExists = prev.some(task => task.id === taskId);
+          // First check if the task already exists in the starred tasks list
+          const exists = prev.some(task => task.id === taskId);
           
-          if (taskExists) {
-            // Update the existing task
-            return prev.map(task => 
-              task.id === taskId ? { ...task, scheduled_time: updatedTask.scheduled_time } : task
-            );
-          } else {
-            // Add the task to starred tasks if it's not already there
-            return [...prev, updatedTask];
+          if (exists) {
+            return prev;
           }
+          
+          // If not, find the complete task object from the tasks hierarchy
+          const taskToAdd = findTaskById(taskId, tasks);
+          if (taskToAdd) {
+            return [...prev, taskToAdd];
+          }
+          
+          // If we can't find the task in the hierarchy, use the updatedTask from the API
+          // This ensures we always add the task even if it's not found in the hierarchy
+          return [...prev, updatedTask];
         });
       }
       
