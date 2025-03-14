@@ -26,6 +26,7 @@ import './calendar.css';
 import config from '@/config/config';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useRouter } from 'next/navigation';
 
 // Define the Task interface based on your existing schema
 interface Task {
@@ -43,6 +44,15 @@ interface Task {
   metadata?: string; // JSON string for storing additional data
   goal_id?: number;
   parent_id?: number;
+}
+
+// Define the Goal interface
+interface Goal {
+  id: number;
+  title: string;
+  description?: string;
+  tasks?: Task[];
+  subgoals?: Goal[];
 }
 
 // Define the CalendarEvent interface
@@ -68,6 +78,7 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
   
   // Menu state for event options
@@ -127,15 +138,135 @@ export default function CalendarPage() {
 
   // Fetch tasks when component mounts
   useEffect(() => {
-    const fetchTasks = async () => {
+    fetchTasks();
+    fetchGoals();
+  }, []);
+
+  // Fetch tasks from API
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.apiUrl}/api/tasks?timestamp=${Date.now()}&limit=1000`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+      
+      const data = await response.json();
+      
+      // Flatten tasks to get all tasks including subtasks
+      const flattenTasks = (tasks: Task[]): Task[] => {
+        let result: Task[] = [];
+        tasks.forEach(task => {
+          result.push(task);
+          if (task.subtasks && task.subtasks.length > 0) {
+            result = result.concat(flattenTasks(task.subtasks));
+          }
+        });
+        return result;
+      };
+      
+      // Get all tasks (including subtasks) in a flat array for starred tasks display
+      const allTasks = flattenTasks(data);
+      
+      // Keep the original task structure for proper subtask lookup
+      // This preserves the parent-child relationships
+      setTasks(data);
+      
+      // Filter for starred and non-completed tasks
+      const starred = allTasks.filter(task => {
+        // Convert is_starred to a boolean if it's not already
+        const isStarred = typeof task.is_starred === 'string' 
+          ? task.is_starred === 'true' 
+          : Boolean(task.is_starred);
+        
+        return isStarred === true && !task.completed;
+      });
+      
+      setStarredTasks(starred);
+      
+      // Convert tasks with scheduled_time to calendar events
+      // We need to check both top-level tasks and subtasks for scheduled_time
+      const getAllTasksWithScheduledTime = (tasks: Task[]): Task[] => {
+        let result: Task[] = [];
+        tasks.forEach(task => {
+          if (task.scheduled_time) {
+            result.push(task);
+          }
+          if (task.subtasks && task.subtasks.length > 0) {
+            result = result.concat(getAllTasksWithScheduledTime(task.subtasks));
+          }
+        });
+        return result;
+      };
+      
+      const tasksWithScheduledTime = getAllTasksWithScheduledTime(data);
+      
+      const events = tasksWithScheduledTime.map((task: Task) => {
+        const startTime = new Date(task.scheduled_time || '');
+        const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+        
+        let timerData = { elapsedTime: undefined, timerActive: false };
+        if (task.metadata) {
+          try {
+            const metadata = JSON.parse(task.metadata);
+            if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
+              timerData = metadata.timerData;
+            }
+          } catch (e) {
+            console.error('Error parsing task metadata:', e);
+          }
+        }
+        
+        return {
+          id: task.id.toString(),
+          title: task.title,
+          start: startTime,
+          end: endTime,
+          priority: task.priority,
+          is_starred: task.is_starred,
+          completed: task.completed,
+          elapsedTime: timerData.elapsedTime,
+          timerActive: task.completed ? false : timerData.timerActive,
+          timerLastUpdated: timerData.timerActive ? Date.now() : undefined
+        };
+      });
+      
+      setCalendarEvents(events);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setError('Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch goals from API
+  const fetchGoals = async () => {
+    try {
+      const response = await fetch(`${config.apiUrl}/api/goals?timestamp=${Date.now()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
+      const data = await response.json();
+      setGoals(data);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      setError('Failed to fetch goals. Please try again later.');
+    }
+  };
+
+  // Add a useEffect to refresh tasks when the page gains focus
+  useEffect(() => {
+    const fetchTasksOnFocus = async () => {
       try {
-        setLoading(true);
-        const response = await fetch(`${config.apiUrl}/api/tasks?timestamp=${Date.now()}&limit=1000`);
-        if (!response.ok) {
+        console.log('Refreshing tasks on focus');
+        // Fetch tasks
+        const tasksResponse = await fetch(`${config.apiUrl}/api/tasks?timestamp=${Date.now()}&limit=1000`);
+        if (!tasksResponse.ok) {
           throw new Error('Failed to fetch tasks');
         }
         
-        const data = await response.json();
+        const data = await tasksResponse.json();
         
         // Flatten tasks to get all tasks including subtasks
         const flattenTasks = (tasks: Task[]): Task[] => {
@@ -154,107 +285,6 @@ export default function CalendarPage() {
         
         // Keep the original task structure for proper subtask lookup
         // This preserves the parent-child relationships
-        setTasks(data);
-        
-        // Filter for starred and non-completed tasks
-        const starred = allTasks.filter(task => {
-          // Convert is_starred to a boolean if it's not already
-          const isStarred = typeof task.is_starred === 'string' 
-            ? task.is_starred === 'true' 
-            : Boolean(task.is_starred);
-          
-          return isStarred === true && !task.completed;
-        });
-        
-        setStarredTasks(starred);
-        
-        // Convert tasks with scheduled_time to calendar events
-        // We need to check both top-level tasks and subtasks for scheduled_time
-        const getAllTasksWithScheduledTime = (tasks: Task[]): Task[] => {
-          let result: Task[] = [];
-          tasks.forEach(task => {
-            if (task.scheduled_time) {
-              result.push(task);
-            }
-            if (task.subtasks && task.subtasks.length > 0) {
-              result = result.concat(getAllTasksWithScheduledTime(task.subtasks));
-            }
-          });
-          return result;
-        };
-        
-        const tasksWithScheduledTime = getAllTasksWithScheduledTime(data);
-        
-        const events = tasksWithScheduledTime.map((task: Task) => {
-          const startTime = new Date(task.scheduled_time || '');
-          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-          
-          let timerData = { elapsedTime: undefined, timerActive: false };
-          if (task.metadata) {
-            try {
-              const metadata = JSON.parse(task.metadata);
-              if (metadata.timerData && metadata.timerData.elapsedTime > 0) {
-                timerData = metadata.timerData;
-              }
-            } catch (e) {
-              console.error('Error parsing task metadata:', e);
-            }
-          }
-          
-          return {
-            id: task.id.toString(),
-            title: task.title,
-            start: startTime,
-            end: endTime,
-            priority: task.priority,
-            is_starred: task.is_starred,
-            completed: task.completed,
-            elapsedTime: timerData.elapsedTime,
-            timerActive: task.completed ? false : timerData.timerActive,
-            timerLastUpdated: timerData.timerActive ? Date.now() : undefined
-          };
-        });
-        
-        setCalendarEvents(events);
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-        setError('Failed to load tasks');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTasks();
-  }, []);
-
-  // Add a useEffect to refresh tasks when the page gains focus
-  useEffect(() => {
-    const fetchTasksOnFocus = async () => {
-      try {
-        console.log('Refreshing tasks on focus');
-        const response = await fetch(`${config.apiUrl}/api/tasks?timestamp=${Date.now()}&limit=1000`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch tasks');
-        }
-        
-        const data = await response.json();
-        
-        // Flatten tasks to get all tasks including subtasks
-        const flattenTasks = (tasks: Task[]): Task[] => {
-          let result: Task[] = [];
-          tasks.forEach(task => {
-            result.push(task);
-            if (task.subtasks && task.subtasks.length > 0) {
-              result = result.concat(flattenTasks(task.subtasks));
-            }
-          });
-          return result;
-        };
-        
-        // Get all tasks (including subtasks) in a flat array for starred tasks display
-        const allTasks = flattenTasks(data);
-        
-        // Keep the original task structure for proper subtask lookup
         setTasks(data);
         
         // Filter for starred and non-completed tasks
@@ -318,6 +348,13 @@ export default function CalendarPage() {
         setCalendarEvents(events);
       } catch (error) {
         console.error('Error refreshing tasks on focus:', error);
+      }
+      
+      // Also refresh goals to get updated goal names
+      const goalsResponse = await fetch(`${config.apiUrl}/api/goals?timestamp=${Date.now()}`);
+      if (goalsResponse.ok) {
+        const goalsData = await goalsResponse.json();
+        setGoals(goalsData);
       }
     };
 
@@ -863,6 +900,32 @@ export default function CalendarPage() {
     return () => clearInterval(interval);
   }, [currentDate]);
   
+  // Helper function to get goal title by id
+  const getGoalTitle = (goalId?: number) => {
+    if (!goalId) return '';
+    
+    // Recursive function to search through goals and their subgoals
+    const findGoalById = (goals: Goal[], id: number): Goal | undefined => {
+      for (const goal of goals) {
+        if (goal.id === id) {
+          return goal;
+        }
+        
+        if (goal.subgoals && goal.subgoals.length > 0) {
+          const subgoal = findGoalById(goal.subgoals, id);
+          if (subgoal) {
+            return subgoal;
+          }
+        }
+      }
+      
+      return undefined;
+    };
+    
+    const goal = findGoalById(goals, goalId);
+    return goal ? goal.title : `Goal ${goalId}`;
+  };
+
   // Calendar navigation functions
   const goToToday = () => {
     setCurrentDate(new Date());
@@ -1077,6 +1140,8 @@ export default function CalendarPage() {
     return false;
   };
 
+  const router = useRouter();
+
   return (
     <div className="container mx-auto p-4">
       {/* Render the event menu */}
@@ -1121,25 +1186,42 @@ export default function CalendarPage() {
                     key={task.id}
                     elevation={1} 
                     sx={{ p: 2, mb: 1 }}
-                    className="task-item"
+                    className="task-item cursor-pointer"
                     draggable="true"
                     onDragStart={(e) => handleDragStart(e, task)}
+                    onDoubleClick={() => {
+                      if (task.goal_id) {
+                        router.push(`/goals/${task.goal_id}`);
+                      }
+                    }}
                   >
                     <div className="flex justify-between items-center">
                       <Typography variant="body1">
                         {task.title}
                       </Typography>
-                      <IconButton 
-                        size="small" 
-                        onClick={() => toggleStar(task.id)}
-                        color="warning"
-                      >
-                        <StarIcon />
-                      </IconButton>
+                      <div className="flex items-center">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => toggleStar(task.id)}
+                          color="warning"
+                        >
+                          <StarIcon />
+                        </IconButton>
+                      </div>
                     </div>
                     {task.scheduled_time && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" display="block">
                         Scheduled: {format(new Date(task.scheduled_time), 'h:mm a')}
+                      </Typography>
+                    )}
+                    {task.goal_id && (
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        display="block"
+                        sx={{ mt: 1 }}
+                      >
+                        From: {getGoalTitle(task.goal_id)}
                       </Typography>
                     )}
                   </Paper>
@@ -1350,9 +1432,9 @@ export default function CalendarPage() {
                     <IconButton 
                       size="small" 
                       onClick={() => toggleStar(task.id)}
-                      color={task.is_starred ? "warning" : "default"}
+                      color="warning"
                     >
-                      {task.is_starred ? <StarIcon /> : <StarBorderIcon />}
+                      <StarIcon />
                     </IconButton>
                   </div>
                   {task.description && (
@@ -1380,6 +1462,16 @@ export default function CalendarPage() {
                       </Typography>
                     )}
                   </div>
+                  {task.goal_id && (
+                    <Typography 
+                      variant="caption" 
+                      color="text.secondary"
+                      display="block"
+                      sx={{ mt: 1 }}
+                    >
+                      From: {getGoalTitle(task.goal_id)}
+                    </Typography>
+                  )}
                 </Paper>
               </Grid>
             ))}
