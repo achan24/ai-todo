@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .routers import tasks, goals, metrics, experiences, strategies, conversations, notes, situations, reminders
+from .routers import tasks, goals, metrics, experiences, strategies, conversations, notes, situations, reminders, ai_recommender
 from .database import engine, Base
 from .core.config import settings
 import logging
@@ -36,6 +36,7 @@ def create_app():
     app.include_router(notes.router)
     app.include_router(situations.router)
     app.include_router(reminders.router, prefix="/api", tags=["reminders"])
+    app.include_router(ai_recommender.router)
     
     # Exception handler
     @app.exception_handler(Exception)

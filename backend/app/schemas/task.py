@@ -59,3 +59,4 @@ Task.model_rebuild()
 
 class TaskWithAIRecommendation(Task):
     ai_confidence: float
+    reasoning: str = "Based on priority and due date"

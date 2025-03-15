@@ -2,7 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Container, Typography, Box, List, ListItem, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { 
+  Button, 
+  Container, 
+  Typography, 
+  Box, 
+  List, 
+  ListItem, 
+  IconButton, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  TextField, 
+  Chip, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem,
+  Tab, 
+  Tabs 
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { PencilIcon, TrashIcon, ClockIcon } from '@heroicons/react/24/solid';
 import config from '@/config/config';
@@ -362,7 +382,7 @@ export default function GoalManager() {
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch('http://localhost:8005/api/goals');
+      const response = await fetch(`${config.apiUrl}/api/goals`);
       if (!response.ok) {
         throw new Error('Failed to fetch goals');
       }
@@ -704,6 +724,10 @@ export default function GoalManager() {
     });
   };
 
+  const handleAIRecommenderClick = () => {
+    router.push('/ai-recommender');
+  };
+
   return (
     <Container maxWidth="lg" className="py-8">
       <Box className="bg-white rounded-xl shadow-sm p-6">
@@ -713,7 +737,7 @@ export default function GoalManager() {
           </Typography>
           <div className="flex gap-2">
             <Button
-              variant={isReordering ? "outlined" : "contained"}
+              variant="contained"
               color="primary"
               startIcon={<AddIcon />}
               onClick={handleCreateGoal}
@@ -727,6 +751,14 @@ export default function GoalManager() {
               onClick={toggleReorderingMode}
             >
               {isReordering ? "Done" : "Reorder"}
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleAIRecommenderClick}
+              disabled={isReordering}
+            >
+              AI Recommend
             </Button>
           </div>
         </div>
@@ -764,7 +796,10 @@ export default function GoalManager() {
         onConfirm={handleFinalDeleteConfirmation}
       />
 
-      <Dialog open={showEditDialog} onClose={() => setShowEditDialog(false)}>
+      <Dialog 
+        open={showEditDialog} 
+        onClose={() => setShowEditDialog(false)}
+      >
         <DialogTitle>Edit Goal</DialogTitle>
         <DialogContent>
           <TextField

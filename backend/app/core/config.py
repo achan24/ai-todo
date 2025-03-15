@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # SambaNova AI
     SAMBANOVA_API_KEY: str = os.getenv("SAMBANOVA_API_KEY", "")
     SAMBANOVA_API_URL: str = os.getenv("SAMBANOVA_API_URL", "")
+    
+    # OpenRouter API (for DeepSeek LLM)
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 
     class Config:
         case_sensitive = True

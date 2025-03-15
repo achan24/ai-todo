@@ -15,7 +15,7 @@ node_modules/
 backend/package-lock.json
 
 # Ignore env files
-.env
-*.env
-.env.*
-backend/.env
+# .env
+# *.env
+# .env.*
+# backend/.env

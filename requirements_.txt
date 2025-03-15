@@ -143,51 +143,6 @@ Goal: "Improve Public Speaking"
 
 ---
 
-## **🔹 AI Task Prioritization Implementation**
-
-### **Database Schema Updates Needed**
-1. Add `goals` table:
-   - `id`: Primary key
-   - `title`: Goal name
-   - `description`: Optional description
-   - `created_at`, `updated_at`: Timestamps
-   - `user_id`: Foreign key to users
-
-2. Update `tasks` table:
-   - Add `goal_id`: Foreign key to goals table
-   - Add `completion_time`: When task was completed
-   - Add `completion_order`: Order of task completion
-
-### **AI Prioritization Factors**
-1. **Goal-Based Scoring**:
-   - Tasks linked to frequently completed goals get higher priority
-   - System learns which goals are most important based on completion patterns
-
-2. **Learning from User Behavior**:
-   - Tag preferences: Learns which tags user typically prioritizes
-   - Time patterns: Identifies optimal times for different task types
-   - Priority level adaptation: Learns user's true priority preferences
-
-3. **Smart Urgency Calculation**:
-   - Exponential urgency increase near deadlines
-   - Heavy weighting for overdue tasks
-   - Considers both absolute deadlines and relative urgency
-
-4. **Pattern Recognition**:
-   - Analyzes task completion history
-   - Identifies goal priorities
-   - Learns tag importance from completion speed
-   - Adapts to user's natural work patterns
-
-### **Next Implementation Steps**
-1. Run database migrations for new schema
-2. Implement goal CRUD operations
-3. Update task creation/editing to support goals
-4. Implement completion tracking
-5. Test and tune AI scoring weights
-
----
-
 ## **🔹 Final MVP Feature List**  
 1️⃣ **AI Task Prioritization (Goals + Tags + AI Sorting)**  
 2️⃣ **AI-Powered Automatic Reminders**  
@@ -748,3 +703,128 @@ New features
             - Active listening
             - Goal directed
             - Fun and light
+
+
+AI Productivity Assistant
+------------------------
+
+### Overview
+The AI Productivity Assistant is an intelligent system that analyzes user data across the application to provide actionable recommendations and insights when explicitly triggered by the user. It serves as a personal productivity advisor that understands the entire context of your goals, tasks, targets, and experiences without requiring you to specify what to analyze.
+
+### Core Functionality
+
+1. **On-Demand Analysis System**
+   - The assistant analyzes all user data when explicitly triggered via a button press
+   - Analyzes the relationships between goals, tasks, targets, strategies, notes, situations, and experiences
+   - Generates prioritized, actionable recommendations based on comprehensive analysis
+   - Presents "What to focus on next" recommendations when requested
+
+2. **Holistic Data Analysis**
+   - Complete visibility into all user data when triggered:
+     - Goals and their hierarchical relationships
+     - Tasks and their completion status
+     - Targets and progress metrics
+     - Strategies and their historical effectiveness
+     - Notes and contextual information
+     - Situations and experiences for pattern recognition
+   - Identifies connections and dependencies that might not be obvious to the user
+
+3. **Intelligent Recommendation Types**
+   - Priority focus areas: "Focus on Goal X today based on upcoming deadlines"
+   - Task prioritization: "These 3 tasks will have the highest impact on your progress"
+   - Goal progress insights: "Goal Y is stalling and needs attention"
+   - Missing definition alerts: "Goal Z would benefit from specific targets"
+   - Strategy optimization: "Strategy A has been more effective than Strategy B for similar goals"
+   - Time management advice: "Your productivity patterns suggest morning work on creative tasks"
+
+4. **Interactive Recommendation Interface**
+   - Recommendations displayed after user triggers the analysis
+   - Each recommendation includes reasoning and supporting evidence
+   - One-click actions to implement recommendations (e.g., prioritize a task, view a goal)
+   - Ability to provide feedback on recommendations to improve future suggestions
+
+5. **Efficient Learning System**
+   - Learns from user behavior and feedback without requiring configuration
+   - Improves recommendation quality over time based on which suggestions were implemented
+   - Adapts to changing priorities and patterns in user data
+   - Maintains memory of past recommendations and their outcomes
+   - Optimizes prompt usage by only analyzing when explicitly requested
+
+6. **Implementation Requirements**
+
+   **Backend:**
+   - Data aggregation service that collects information across all models when triggered
+   - Analysis engine to identify patterns, priorities, and recommendations
+   - Integration with external AI service (e.g., SambaNova) for advanced pattern recognition
+   - Memory system to track recommendation effectiveness
+   - Efficient prompt management to minimize API usage
+
+   **Frontend:**
+   - Clear "Analyze" button on the front page to trigger the assistant
+   - Recommendation display area that shows results after analysis
+   - Visual priority indicators for recommendations
+   - Action buttons to implement suggestions with minimal clicks
+   - Feedback mechanism for recommendations
+
+7. **User Experience**
+   - Zero configuration required - the system learns from existing data and interactions
+   - Recommendations appear when explicitly requested by the user
+   - Clear explanations for why each recommendation is being made
+   - Actionable suggestions that can be implemented immediately
+   - Efficient use of AI resources by only analyzing when requested
+
+## 🔹 Enhanced Goal Recommendation System
+
+### Overview
+- The goal recommendation system should provide intelligent, contextual recommendations that guide users toward achievement
+- Recommendations should consider multiple factors beyond simple priority and deadlines
+- The system should leverage LLM capabilities to identify patterns and scenarios that might not be anticipated
+- Recommendations should be actionable and provide clear next steps
+
+### Key Recommendation Scenarios
+1. **Goal Inactivity Detection**:
+   - "This goal hasn't been touched in a while and aligns with your priorities"
+   - Suggest creating new targets or tasks to revitalize progress
+
+2. **Deadline-Driven Recommendations**:
+   - "This high priority goal has a deadline approaching and needs immediate focus"
+   - Provide specific next actions based on remaining work
+
+3. **Workload Analysis**:
+   - "This target requires significant work based on complexity and timeline"
+   - Break down complex targets into manageable tasks
+
+4. **Progress Acceleration**:
+   - "You're making good progress on this goal, here's how to maintain momentum"
+   - Suggest next steps based on current trajectory
+
+5. **Stalled Progress Intervention**:
+   - "Progress on this goal has stalled, here's how to get back on track"
+   - Identify blockers and suggest solutions
+
+### Implementation Approach
+1. **Comprehensive Data Collection**:
+   - Provide the LLM with rich context about goals, targets, tasks, and progress
+   - Include temporal data (creation dates, last updates, deadlines)
+   - Track completion rates and progress metrics
+
+2. **Open-Ended Prompt Design**:
+   - Create prompts that encourage the LLM to identify relevant patterns
+   - Allow the LLM to consider scenarios beyond predefined categories
+   - Request detailed reasoning for recommendations
+
+3. **Actionable Output Format**:
+   - Ensure recommendations include specific next steps
+   - Categorize recommendations by type (task creation, target focus, etc.)
+   - Provide confidence scores and importance/urgency ratings
+
+4. **User Feedback Loop**:
+   - Capture user responses to recommendations
+   - Use feedback to improve future recommendations
+   - Allow users to specify focus areas or override recommendations
+
+### Integration Points
+- Enhance the existing `get_openrouter_goal_recommendation` and `get_sambanova_goal_recommendation` functions
+- Update the prompt to be more comprehensive and outcome-focused
+- Ensure the recommendation schema captures all necessary details
+- Connect with the Goal Targets system for target-specific recommendations

@@ -142,3 +142,17 @@ class Goal(GoalBase):
 
     class Config:
         from_attributes = True
+
+class GoalWithAIRecommendation(Goal):
+    """
+    Goal model with additional AI recommendation fields.
+    Used for returning AI-recommended goals to the client.
+    """
+    ai_confidence: float
+    reasoning: str = "Based on priority, targets, and deadlines"
+    next_steps: Optional[List[Dict[str, Any]]] = None
+    importance_score: Optional[float] = None
+    urgency_score: Optional[float] = None
+    
+    class Config:
+        from_attributes = True
